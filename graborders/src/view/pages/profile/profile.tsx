@@ -69,6 +69,9 @@ function Profile() {
   const kycStatus = useSelector(kycSelectors.selectKycStatus);
   const loadingAssets = useSelector(assetsListSelectors.selectLoading);
 
+  // ✅ Real balance from Redux
+  const totalFiat = useSelector(assetsListSelectors.selectTotalFiat);
+
   const [hideAmounts, setHideAmounts] = useState(false);
   const [isLanguageModalOpen, setIsLanguageModalOpen] = useState(false);
 
@@ -106,7 +109,16 @@ function Profile() {
 
   const displayName = currentUser?.fullName || currentUser?.email || i18n("pages.profile.user");
   const accountId = "ID: 1234 5678 9012"; // replace with real data if available
-  const availableAssets = i18n("pages.wallet.totalUsdValue") || "Available Assets";
+  const availableAssetsLabel = i18n("pages.wallet.totalUsdValue") || "Available Assets";
+
+  // Format number with commas + two decimals
+  const formatBalance = (value: number) => {
+    if (value === null || value === undefined) return "0.00";
+    return value.toLocaleString("en-US", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+  };
 
   // KYC helpers
   const getVerificationText = () => {
@@ -234,13 +246,14 @@ function Profile() {
           </button>
         </div>
 
+        {/* ✅ Dynamic balance */}
         <div className="balance-amount">
           {loadingAssets ? (
             <div className="skeleton-line amount-skel" />
           ) : hideAmounts ? (
             "••••••"
           ) : (
-            "$100,000"
+            `$${formatBalance(totalFiat)}`
           )}
         </div>
         <p className="balance-subtitle">
@@ -249,7 +262,7 @@ function Profile() {
           ) : hideAmounts ? (
             "••••"
           ) : (
-            availableAssets
+            availableAssetsLabel
           )}
         </p>
       </div>
@@ -579,7 +592,7 @@ function Profile() {
         .menu-link-wrapper {
           text-decoration: none;
           color: inherit;
-          display: block; /* ensures full width clickable area */
+          display: block;
         }
 
         /* ── logout button (outside list) ── */

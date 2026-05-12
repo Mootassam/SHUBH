@@ -23,42 +23,42 @@ interface MarketData {
 
 
 const availableCoins = [
-  { symbol: "XAUUSD",  name: "Gold" },
-  { symbol: "EURUSD",  name: "EUR / USD" },
-  { symbol: "GBPUSD",  name: "GBP / USD" },
-  { symbol: "BTCUSD",  name: "Bitcoin" },
-  { symbol: "ETHUSD",  name: "Ethereum" },
-  { symbol: "XAGUSD",  name: "Silver" },
-  { symbol: "AUDUSD",  name: "AUD / USD" },
-  { symbol: "USDJPY",  name: "USD / JPY" },
-  { symbol: "NZDUSD",  name: "NZD / USD" },
-  { symbol: "USDCHF",  name: "USD / CHF" },
-  { symbol: "USDCAD",  name: "USD / CAD" },
-  { symbol: "LTCUSD",  name: "Litecoin" },
-  { symbol: "USOIL",   name: "US Oil" },
-  { symbol: "UKOIL",   name: "UK Oil" },
-  { symbol: "EURJPY",  name: "EUR / JPY" },
-  { symbol: "EURCHF",  name: "EUR / CHF" },
-  { symbol: "AUDNZD",  name: "AUD / NZD" },
-  { symbol: "GBPAUD",  name: "GBP / AUD" },
-  { symbol: "AUDJPY",  name: "AUD / JPY" },
-  { symbol: "EURNZD",  name: "EUR / NZD" },
-  { symbol: "CADJPY",  name: "CAD / JPY" },
-  { symbol: "NZDJPY",  name: "NZD / JPY" },
-  { symbol: "EURAUD",  name: "EUR / AUD" },
-  { symbol: "GBPJPY",  name: "GBP / JPY" },
-  { symbol: "EURCAD",  name: "EUR / CAD" },
-  { symbol: "GBPNZD",  name: "GBP / NZD" },
-  { symbol: "EURGBP",  name: "EUR / GBP" },
-  { symbol: "NAS100",  name: "Nasdaq 100" },
-  { symbol: "AUS200",  name: "ASX 200" },
-  { symbol: "ESP35",   name: "IBEX 35" },
-  { symbol: "FRA40",   name: "CAC 40" },
-  { symbol: "GER30",   name: "DAX 30" },
-  { symbol: "SPX500",  name: "S&P 500" },
-  { symbol: "US30",    name: "Dow Jones 30" },
-  { symbol: "UK100",   name: "FTSE 100" },
-  { symbol: "JPN225",  name: "Nikkei 225" },
+  { symbol: "XAUUSD", name: "Gold" },
+  { symbol: "EURUSD", name: "EUR / USD" },
+  { symbol: "GBPUSD", name: "GBP / USD" },
+  { symbol: "BTCUSD", name: "Bitcoin" },
+  { symbol: "ETHUSD", name: "Ethereum" },
+  { symbol: "XAGUSD", name: "Silver" },
+  { symbol: "AUDUSD", name: "AUD / USD" },
+  { symbol: "USDJPY", name: "USD / JPY" },
+  { symbol: "NZDUSD", name: "NZD / USD" },
+  { symbol: "USDCHF", name: "USD / CHF" },
+  { symbol: "USDCAD", name: "USD / CAD" },
+  { symbol: "LTCUSD", name: "Litecoin" },
+  { symbol: "USOIL", name: "US Oil" },
+  { symbol: "UKOIL", name: "UK Oil" },
+  { symbol: "EURJPY", name: "EUR / JPY" },
+  { symbol: "EURCHF", name: "EUR / CHF" },
+  { symbol: "AUDNZD", name: "AUD / NZD" },
+  { symbol: "GBPAUD", name: "GBP / AUD" },
+  { symbol: "AUDJPY", name: "AUD / JPY" },
+  { symbol: "EURNZD", name: "EUR / NZD" },
+  { symbol: "CADJPY", name: "CAD / JPY" },
+  { symbol: "NZDJPY", name: "NZD / JPY" },
+  { symbol: "EURAUD", name: "EUR / AUD" },
+  { symbol: "GBPJPY", name: "GBP / JPY" },
+  { symbol: "EURCAD", name: "EUR / CAD" },
+  { symbol: "GBPNZD", name: "GBP / NZD" },
+  { symbol: "EURGBP", name: "EUR / GBP" },
+  { symbol: "NAS100", name: "Nasdaq 100" },
+  { symbol: "AUS200", name: "ASX 200" },
+  { symbol: "ESP35", name: "IBEX 35" },
+  { symbol: "FRA40", name: "CAC 40" },
+  { symbol: "GER30", name: "DAX 30" },
+  { symbol: "SPX500", name: "S&P 500" },
+  { symbol: "US30", name: "Dow Jones 30" },
+  { symbol: "UK100", name: "FTSE 100" },
+  { symbol: "JPN225", name: "Nikkei 225" },
 ];
 
 interface Order {
@@ -137,9 +137,9 @@ function Futures() {
       if (!buffer.startsWith("~m~")) break;
       const second = buffer.indexOf("~m~", 3);
       const length = parseInt(buffer.substring(3, second));
-      const message = buffer.substring(second + 3, second + 3 + length);
+      const message = buffer.substr(second + 3, length);
       result.push(message);
-      buffer = buffer.substring(second + 3 + length);
+      buffer = buffer.substr(second + 3 + length);
     }
     return result;
   }, []);
@@ -562,10 +562,10 @@ function Futures() {
 
             {/* Keep the action buttons (buy up/down) as they launch the modal */}
             <div className="future-action-buttons">
-              <button className="action-button buy-button" onClick={() => handleOpenModal("up")}>
+              <button className="action-button buy-button" >
                 {i18n('pages.futures.actions.buyUp')}
               </button>
-              <button className="action-button sell-button" onClick={() => handleOpenModal("down")}>
+              <button className="action-button sell-button" >
                 {i18n('pages.futures.actions.buyDown')}
               </button>
             </div>
