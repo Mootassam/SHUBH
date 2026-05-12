@@ -1,0 +1,1126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trading Platform – Black & Green Theme</title>
+    <style>
+        :root {
+            --primary: #2EDC3A;
+            --primary-dark: #25b32e;
+            --primary-light: #eafdea;
+            --primary-glow: rgba(46, 220, 58, 0.25);
+            --header-bg: #000000;
+            --header-text: #FFFFFF;
+            --bg: #FFFFFF;
+            --bg-section: #F3F4F6;
+            --bg-card: #EDEDED;
+            --bg-light: #f9fafb;
+            --bg-lighter: #F3F4F6;
+            --bg-hover: #e5e7eb;
+            --text-heading: #000000;
+            --text: #000000;
+            --text-secondary: #4B5563;
+            --text-muted: #9CA3AF;
+            --text-light: #9CA3AF;
+            --border: #D1D5DB;
+            --border-light: #e5e7eb;
+            --border-muted: #D1D5DB;
+            --red: #ef4444;
+            --red-bg: #fef2f2;
+            --red-dark: #dc2626;
+            --green: #2EDC3A;
+            --green-bg: #eafdea;
+            --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.03);
+            --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.05);
+            --shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+            --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.07);
+            --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.09);
+            --radius-xs: 6px;
+            --radius-sm: 8px;
+            --radius: 10px;
+            --radius-md: 12px;
+            --radius-lg: 16px;
+            --radius-xl: 20px;
+            --font: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+            --transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: var(--font);
+            background: var(--bg-section);
+            color: var(--text);
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            letter-spacing: -0.01em;
+        }
+
+        /* ==================== HEADER (BLACK) ==================== */
+        .header {
+            background: var(--header-bg);
+            border-bottom: 1px solid #222;
+            height: 58px;
+            min-height: 58px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 20px;
+            z-index: 100;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 28px;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            font-weight: 700;
+            font-size: 20px;
+            color: var(--header-text);
+            letter-spacing: -0.03em;
+            cursor: pointer;
+            text-decoration: none;
+        }
+
+        .logo img {
+            height: 30px;
+            width: auto;
+        }
+
+        .header-nav {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .header-nav button {
+            padding: 8px 16px;
+            border: none;
+            background: transparent;
+            color: #FFFFFF;
+            font-size: 13.5px;
+            font-weight: 500;
+            cursor: pointer;
+            border-radius: var(--radius-sm);
+            transition: var(--transition);
+            font-family: var(--font);
+            letter-spacing: -0.01em;
+            white-space: nowrap;
+            opacity: 0.85;
+        }
+
+        .header-nav button:hover {
+            background: rgba(255,255,255,0.08);
+            opacity: 1;
+        }
+        .header-nav button.active {
+            background: var(--green-bg);
+            color: var(--primary);
+            font-weight: 600;
+            opacity: 1;
+            box-shadow: 0 0 0 1px rgba(46,220,58,0.2);
+        }
+
+        .header-center {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .timeframe-selector {
+            display: flex;
+            align-items: center;
+            gap: 2px;
+            background: rgba(255,255,255,0.08);
+            border-radius: var(--radius-sm);
+            padding: 3px;
+        }
+
+        .timeframe-selector button {
+            padding: 6px 11px;
+            border: none;
+            background: transparent;
+            color: #FFFFFF;
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            border-radius: var(--radius-xs);
+            transition: var(--transition);
+            font-family: var(--font);
+            letter-spacing: 0.01em;
+            opacity: 0.8;
+        }
+
+        .timeframe-selector button:hover {
+            opacity: 1;
+            background: rgba(255,255,255,0.1);
+        }
+        .timeframe-selector button.active-tf {
+            background: var(--primary);
+            color: #000000;
+            font-weight: 600;
+            opacity: 1;
+            box-shadow: 0 2px 8px rgba(46,220,58,0.4);
+        }
+
+        .indicator-btn {
+            padding: 7px 14px;
+            border: 1px solid rgba(255,255,255,0.25);
+            background: transparent;
+            color: #FFFFFF;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            border-radius: var(--radius-sm);
+            transition: var(--transition);
+            font-family: var(--font);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .indicator-btn:hover {
+            border-color: rgba(255,255,255,0.5);
+            background: rgba(255,255,255,0.05);
+        }
+        .indicator-dot {
+            width: 5px;
+            height: 5px;
+            border-radius: 50%;
+            background: var(--primary);
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .lang-select {
+            padding: 7px 12px;
+            border: 1px solid rgba(255,255,255,0.25);
+            background: transparent;
+            color: #FFFFFF;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            border-radius: var(--radius-sm);
+            font-family: var(--font);
+            appearance: none;
+            -webkit-appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23FFFFFF' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'%3E%3C/path%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 10px center;
+            padding-right: 30px;
+            transition: var(--transition);
+        }
+        .lang-select:hover {
+            border-color: rgba(255,255,255,0.5);
+            background: rgba(255,255,255,0.05);
+        }
+        .lang-select option {
+            background: #000;
+            color: #fff;
+        }
+
+        .btn-login {
+            padding: 7px 18px;
+            border: 1px solid var(--primary);
+            background: transparent;
+            color: var(--primary);
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            border-radius: var(--radius-sm);
+            transition: var(--transition);
+            font-family: var(--font);
+        }
+        .btn-login:hover {
+            background: var(--primary);
+            color: #000000;
+            box-shadow: 0 2px 10px rgba(46,220,58,0.3);
+        }
+
+        .btn-register {
+            padding: 7px 18px;
+            border: none;
+            background: var(--primary);
+            color: #000000;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            border-radius: var(--radius-sm);
+            transition: var(--transition);
+            font-family: var(--font);
+            box-shadow: 0 2px 12px rgba(46,220,58,0.4);
+        }
+        .btn-register:hover {
+            background: var(--primary-dark);
+            box-shadow: 0 4px 20px rgba(46,220,58,0.55);
+            transform: translateY(-1px);
+        }
+
+        /* ==================== MAIN LAYOUT ==================== */
+        .main-container {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+            height: calc(100vh - 58px);
+        }
+
+        /* ==================== LEFT SIDEBAR ==================== */
+        .left-sidebar {
+            width: 290px;
+            min-width: 290px;
+            background: var(--bg);
+            border-right: 1px solid var(--border-muted);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow: var(--shadow-xs);
+            z-index: 10;
+        }
+
+        .sidebar-search {
+            padding: 14px 14px 8px;
+            position: relative;
+        }
+        .sidebar-search input {
+            width: 100%;
+            padding: 9px 12px 9px 36px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            font-size: 13px;
+            font-family: var(--font);
+            color: var(--text);
+            background: var(--bg-light);
+            transition: var(--transition);
+            outline: none;
+        }
+        .sidebar-search input:focus {
+            border-color: var(--primary);
+            background: #fff;
+            box-shadow: 0 0 0 3px rgba(46,220,58,0.06);
+        }
+        .sidebar-search .search-icon {
+            position: absolute;
+            left: 26px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 15px;
+            height: 15px;
+            pointer-events: none;
+        }
+        .sidebar-search .search-icon::before {
+            content: '';
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            border: 2px solid var(--text-muted);
+            border-radius: 50%;
+            top: 0;
+            left: 0;
+        }
+        .sidebar-search .search-icon::after {
+            content: '';
+            position: absolute;
+            width: 6px;
+            height: 2px;
+            background: var(--text-muted);
+            border-radius: 1px;
+            bottom: 1px;
+            right: -2px;
+            transform: rotate(45deg);
+        }
+
+        .sidebar-filter {
+            padding: 0 14px 10px;
+        }
+        .sidebar-filter select {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            font-size: 12.5px;
+            font-family: var(--font);
+            color: var(--text-secondary);
+            background: #fff;
+            cursor: pointer;
+            appearance: none;
+            -webkit-appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%234B5563' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'%3E%3C/path%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 10px center;
+            padding-right: 28px;
+            transition: var(--transition);
+            outline: none;
+        }
+        .sidebar-filter select:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(46,220,58,0.06);
+        }
+
+        .market-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 0 8px;
+            scroll-behavior: smooth;
+        }
+        .market-list::-webkit-scrollbar {
+            width: 4px;
+        }
+        .market-list::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .market-list::-webkit-scrollbar-thumb {
+            background: #d1d5db;
+            border-radius: 10px;
+        }
+        .market-list::-webkit-scrollbar-thumb:hover {
+            background: #b0b7c3;
+        }
+
+        .market-category {
+            padding: 8px 8px 4px;
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .market-item {
+            display: flex;
+            align-items: center;
+            padding: 10px 10px;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            transition: var(--transition);
+            gap: 10px;
+            margin: 1px 4px;
+            position: relative;
+        }
+        .market-item:hover {
+            background: var(--bg-lighter);
+        }
+        .market-item.selected {
+            background: var(--green-bg);
+            box-shadow: 0 0 0 1px rgba(46,220,58,0.25);
+        }
+        .market-item.selected .market-symbol {
+            color: var(--primary);
+            font-weight: 700;
+        }
+
+        .market-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            font-weight: 700;
+            color: #fff;
+        }
+        .icon-gold { background: linear-gradient(135deg, #f59e0b, #d97706); }
+        .icon-forex { background: linear-gradient(135deg, #3b82f6, #2563eb); }
+        .icon-crypto { background: linear-gradient(135deg, #f7931a, #e67700); }
+        .icon-silver { background: linear-gradient(135deg, #9ca3af, #6b7280); }
+
+        .market-info { flex: 1; min-width: 0; }
+        .market-symbol {
+            font-size: 13.5px;
+            font-weight: 600;
+            color: var(--text-heading);
+            letter-spacing: -0.01em;
+        }
+        .market-name { font-size: 11px; color: var(--text-muted); letter-spacing: 0.01em; }
+        .market-price-info { text-align: right; flex-shrink: 0; }
+        .market-price {
+            font-size: 13.5px;
+            font-weight: 600;
+            color: var(--text-heading);
+        }
+        .market-change { font-size: 11.5px; font-weight: 600; }
+        .market-change.positive { color: var(--green); }
+        .market-change.negative { color: var(--red); }
+        .market-item.selected .market-price { color: var(--primary); }
+
+        /* ==================== CENTER CHART ==================== */
+        .chart-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: var(--bg);
+            overflow: hidden;
+            min-width: 0;
+            border-left: 1px solid var(--border-light);
+            border-right: 1px solid var(--border-light);
+        }
+
+        .chart-header {
+            padding: 14px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid var(--border-light);
+            flex-shrink: 0;
+        }
+        .chart-asset-info { display: flex; align-items: center; gap: 12px; }
+        .chart-asset-icon {
+            width: 38px; height: 38px; border-radius: 50%;
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 16px; color: #fff; font-weight: 700;
+        }
+        .chart-asset-name { font-size: 17px; font-weight: 700; color: var(--text-heading); letter-spacing: -0.02em; }
+        .chart-asset-symbol { font-size: 12px; color: var(--text-muted); font-weight: 500; }
+        .chart-price-display { text-align: right; }
+        .chart-current-price { font-size: 28px; font-weight: 700; color: var(--text-heading); letter-spacing: -0.03em; line-height: 1; }
+        .chart-price-change { font-size: 13px; font-weight: 600; color: var(--green); }
+
+        .chart-ohlc-row {
+            display: flex; gap: 18px; padding: 8px 20px; font-size: 12px;
+            color: var(--text-secondary); font-weight: 500; border-bottom: 1px solid var(--border-light);
+            flex-shrink: 0; letter-spacing: -0.01em;
+        }
+        .chart-ohlc-row span { display: flex; align-items: center; gap: 4px; }
+        .chart-ohlc-row .ohlc-label { color: var(--text-muted); font-weight: 500; font-size: 11px; text-transform: uppercase; }
+        .chart-ohlc-row .ohlc-value { font-weight: 600; color: var(--text-heading); font-size: 12.5px; }
+
+        .chart-container { flex: 1; position: relative; overflow: hidden; padding: 10px 20px 10px 10px; cursor: crosshair; }
+        .chart-grid { position: absolute; top: 0; left: 0; right: 0; bottom: 50px; pointer-events: none; }
+        .grid-line { position: absolute; left: 0; right: 0; height: 1px; background: #e5e7eb; }
+        .grid-line-price { position: absolute; right: 8px; font-size: 10px; color: #b0b7c3; font-weight: 500; transform: translateY(-50%); background: #fff; padding: 0 4px; }
+
+        .candles-wrapper { position: absolute; top: 5px; left: 10px; right: 50px; bottom: 55px; }
+        .candle { position: absolute; width: 2px; border-radius: 1px; transform: translateX(-50%); }
+        .candle.bullish { background: var(--green); }
+        .candle.bearish { background: var(--red); }
+        .candle-body { position: absolute; left: -4px; width: 10px; border-radius: 2px; min-height: 1px; }
+        .candle.bullish .candle-body { background: var(--green); }
+        .candle.bearish .candle-body { background: var(--red); }
+
+        .volume-bars { position: absolute; bottom: 2px; left: 10px; right: 50px; height: 45px; pointer-events: none; }
+        .volume-bar { position: absolute; bottom: 0; width: 8px; border-radius: 2px 2px 0 0; opacity: 0.35; transform: translateX(-50%); }
+        .volume-bar.vol-up { background: var(--green); }
+        .volume-bar.vol-down { background: var(--red); }
+
+        .current-price-line { position: absolute; left: 0; right: 50px; height: 1px; border-top: 2px dashed var(--primary); pointer-events: none; z-index: 5; opacity: 0.9; }
+        .current-price-label { position: absolute; right: 4px; background: var(--primary); color: #000000; font-size: 10px; font-weight: 700; padding: 3px 7px; border-radius: 4px; transform: translateY(-50%); z-index: 6; pointer-events: none; white-space: nowrap; }
+
+        .chart-timeframe-bottom { position: absolute; bottom: 0; left: 10px; right: 50px; display: flex; justify-content: space-between; padding: 0 4px; pointer-events: none; }
+        .chart-timeframe-bottom span { font-size: 10px; color: #b0b7c3; font-weight: 500; }
+
+        /* ==================== RIGHT SIDEBAR ==================== */
+        .right-sidebar {
+            width: 310px; min-width: 310px; background: var(--bg);
+            border-left: 1px solid var(--border-muted); display: flex; flex-direction: column;
+            overflow-y: auto; overflow-x: hidden; box-shadow: var(--shadow-xs); z-index: 10;
+            padding: 16px 16px 20px; gap: 14px;
+        }
+        .right-sidebar::-webkit-scrollbar { width: 4px; }
+        .right-sidebar::-webkit-scrollbar-track { background: transparent; }
+        .right-sidebar::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 10px; }
+
+        .funds-card {
+            background: var(--primary);
+            color: #000000;
+            border-radius: var(--radius-md);
+            padding: 16px 18px;
+            display: flex; align-items: center; justify-content: space-between;
+            box-shadow: 0 4px 18px rgba(46,220,58,0.35);
+            flex-shrink: 0;
+        }
+        .funds-label { font-size: 12px; font-weight: 600; opacity: 0.85; letter-spacing: 0.02em; text-transform: uppercase; }
+        .funds-amount { font-size: 22px; font-weight: 700; letter-spacing: 0.04em; font-family: 'SF Mono', 'Consolas', monospace; }
+        .funds-icon { width: 38px; height: 38px; border-radius: 50%; background: rgba(0,0,0,0.1); display: flex; align-items: center; justify-content: center; font-size: 18px; }
+
+        .section-label { font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
+
+        .binary-section { background: var(--bg-card); border-radius: var(--radius-md); padding: 14px; flex-shrink: 0; border: 1px solid var(--border-light); }
+        .duration-selector { display: flex; gap: 4px; flex-wrap: wrap; }
+        .duration-btn { padding: 7px 12px; border: 1px solid var(--border); background: #fff; color: var(--text-secondary); font-size: 12px; font-weight: 500; cursor: pointer; border-radius: var(--radius-xs); transition: var(--transition); font-family: var(--font); flex: 1; min-width: 50px; text-align: center; }
+        .duration-btn:hover { border-color: #c4c7cc; color: var(--text-heading); }
+        .duration-btn.active-dur { background: var(--primary); color: #000000; border-color: var(--primary); font-weight: 600; box-shadow: 0 2px 8px rgba(46,220,58,0.3); }
+        .binary-amount-input { width: 100%; padding: 9px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 13px; font-family: var(--font); color: var(--text-heading); outline: none; transition: var(--transition); background: #fff; margin-top: 8px; text-align: center; font-weight: 600; }
+        .binary-amount-input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(46,220,58,0.06); }
+        .binary-buttons { display: flex; gap: 8px; margin-top: 8px; }
+        .btn-buy-up { flex: 1; padding: 12px; border: none; background: var(--primary); color: #000000; font-size: 13px; font-weight: 700; cursor: pointer; border-radius: var(--radius-sm); transition: var(--transition); font-family: var(--font); letter-spacing: 0.02em; box-shadow: 0 2px 10px rgba(46,220,58,0.3); }
+        .btn-buy-up:hover { background: var(--primary-dark); box-shadow: 0 4px 18px rgba(46,220,58,0.45); transform: translateY(-1px); }
+        .btn-buy-down { flex: 1; padding: 12px; border: none; background: var(--red); color: #FFFFFF; font-size: 13px; font-weight: 700; cursor: pointer; border-radius: var(--radius-sm); transition: var(--transition); font-family: var(--font); letter-spacing: 0.02em; box-shadow: 0 2px 8px rgba(239,68,68,0.25); }
+        .btn-buy-down:hover { background: #dc2626; box-shadow: 0 4px 14px rgba(239,68,68,0.4); transform: translateY(-1px); }
+
+        /* ==================== POSITIONS & ORDERS TABS ==================== */
+        .positions-tabs {
+            background: var(--bg-card);
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-light);
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+        .tab-headers {
+            display: flex;
+            background: #fff;
+            border-bottom: 1px solid var(--border-light);
+        }
+        .tab-headers label {
+            flex: 1;
+            text-align: center;
+            padding: 10px 5px;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: var(--transition);
+            letter-spacing: -0.01em;
+            border-bottom: 2px solid transparent;
+            background: #fafafa;
+        }
+        .tab-headers label:hover {
+            color: var(--text-heading);
+            background: #f3f3f3;
+        }
+        .tab-headers input[type="radio"] {
+            display: none;
+        }
+        #tab-pos:checked ~ .tab-headers label[for="tab-pos"],
+        #tab-rec:checked ~ .tab-headers label[for="tab-rec"] {
+            color: var(--primary);
+            background: #fff;
+            border-bottom: 2px solid var(--primary);
+            font-weight: 700;
+        }
+        .tab-content {
+            display: none;
+            background: #fff;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        #tab-pos:checked ~ .content-pos {
+            display: block;
+        }
+        #tab-rec:checked ~ .content-rec {
+            display: block;
+        }
+        .tab-content::-webkit-scrollbar {
+            width: 3px;
+        }
+        .tab-content::-webkit-scrollbar-thumb {
+            background: #d1d5db;
+            border-radius: 10px;
+        }
+        .trade-list {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 11px;
+            letter-spacing: 0.01em;
+        }
+        .trade-list th {
+            text-align: left;
+            padding: 8px 8px;
+            background: #f9fafb;
+            color: var(--text-muted);
+            font-weight: 600;
+            font-size: 10px;
+            text-transform: uppercase;
+            border-bottom: 1px solid var(--border-light);
+            white-space: nowrap;
+        }
+        .trade-list td {
+            padding: 8px 8px;
+            border-bottom: 1px solid var(--border-light);
+            color: var(--text);
+            font-weight: 500;
+            white-space: nowrap;
+        }
+        .trade-list tr:hover td {
+            background: #f8fafc;
+        }
+        .trade-list .positive {
+            color: var(--green);
+            font-weight: 600;
+        }
+        .trade-list .negative {
+            color: var(--red);
+            font-weight: 600;
+        }
+        .type-buy {
+            color: var(--green);
+            font-weight: 700;
+        }
+        .type-sell {
+            color: var(--red);
+            font-weight: 700;
+        }
+
+        @media (max-width: 1400px) {
+            .left-sidebar { width: 260px; min-width: 260px; }
+            .right-sidebar { width: 280px; min-width: 280px; }
+            .chart-current-price { font-size: 24px; }
+        }
+        @media (max-width: 1200px) {
+            .left-sidebar { width: 240px; min-width: 240px; }
+            .right-sidebar { width: 260px; min-width: 260px; }
+            .header-nav button { padding: 6px 10px; font-size: 12px; }
+            .timeframe-selector button { padding: 5px 8px; font-size: 11px; }
+        }
+    </style>
+</head>
+<body>
+
+    <header class="header">
+        <div class="header-left">
+            <a href="#" class="logo">
+                <img src="https://cdn.icmarkets.com/uploads/IC-logo-fsa.png" style="width: 172px;" alt="logo">
+            </a>
+        </div>
+
+        <div class="header-center">
+            <div class="timeframe-selector">
+                <button>1M</button>
+                <button>5M</button>
+                <button class="active-tf">15M</button>
+                <button>30M</button>
+                <button>1H</button>
+                <button>1D</button>
+            </div>
+            <button class="indicator-btn">
+                <span class="indicator-dot"></span> Indicators
+            </button>
+        </div>
+
+        <div class="header-right">
+            <select class="lang-select">
+                <option>English</option>
+                <option>Español</option>
+                <option>Français</option>
+                <option>Deutsch</option>
+            </select>
+            <button class="btn-login">Client Login</button>
+            <button class="btn-register">Register</button>
+        </div>
+    </header>
+
+    <div class="main-container">
+        <aside class="left-sidebar">
+            <div class="sidebar-search">
+                <input type="text" placeholder="Search markets..." value="">
+                <div class="search-icon"></div>
+            </div>
+            <div class="sidebar-filter">
+                <select>
+                    <option>All Markets</option>
+                    <option>Forex</option>
+                    <option>Crypto</option>
+                    <option>Metals</option>
+                    <option>Indices</option>
+                </select>
+            </div>
+            <div class="market-list">
+                <div class="market-category">💎 Metals</div>
+                <div class="market-item selected">
+                    <div class="market-icon icon-gold">Au</div>
+                    <div class="market-info">
+                        <div class="market-symbol">XAUUSD</div>
+                        <div class="market-name">Gold / USD</div>
+                    </div>
+                    <div class="market-price-info">
+                        <div class="market-price">2,034.50</div>
+                        <div class="market-change positive">+0.38%</div>
+                    </div>
+                </div>
+                <div class="market-item">
+                    <div class="market-icon icon-silver">Ag</div>
+                    <div class="market-info">
+                        <div class="market-symbol">XAGUSD</div>
+                        <div class="market-name">Silver / USD</div>
+                    </div>
+                    <div class="market-price-info">
+                        <div class="market-price">24.850</div>
+                        <div class="market-change negative">-0.22%</div>
+                    </div>
+                </div>
+                <div class="market-item">
+                    <div class="market-icon icon-gold">Pt</div>
+                    <div class="market-info">
+                        <div class="market-symbol">XPTUSD</div>
+                        <div class="market-name">Platinum / USD</div>
+                    </div>
+                    <div class="market-price-info">
+                        <div class="market-price">975.30</div>
+                        <div class="market-change positive">+1.12%</div>
+                    </div>
+                </div>
+
+                <div class="market-category">💱 Forex</div>
+                <div class="market-item">
+                    <div class="market-icon icon-forex">€$</div>
+                    <div class="market-info">
+                        <div class="market-symbol">EURUSD</div>
+                        <div class="market-name">Euro / USD</div>
+                    </div>
+                    <div class="market-price-info">
+                        <div class="market-price">1.0845</div>
+                        <div class="market-change positive">+0.15%</div>
+                    </div>
+                </div>
+                <div class="market-item">
+                    <div class="market-icon icon-forex">£$</div>
+                    <div class="market-info">
+                        <div class="market-symbol">GBPUSD</div>
+                        <div class="market-name">Pound / USD</div>
+                    </div>
+                    <div class="market-price-info">
+                        <div class="market-price">1.2650</div>
+                        <div class="market-change negative">-0.08%</div>
+                    </div>
+                </div>
+                <div class="market-item">
+                    <div class="market-icon icon-forex">¥$</div>
+                    <div class="market-info">
+                        <div class="market-symbol">USDJPY</div>
+                        <div class="market-name">USD / Yen</div>
+                    </div>
+                    <div class="market-price-info">
+                        <div class="market-price">151.72</div>
+                        <div class="market-change positive">+0.45%</div>
+                    </div>
+                </div>
+                <div class="market-item">
+                    <div class="market-icon icon-forex">Fr$</div>
+                    <div class="market-info">
+                        <div class="market-symbol">USDCHF</div>
+                        <div class="market-name">USD / Franc</div>
+                    </div>
+                    <div class="market-price-info">
+                        <div class="market-price">0.9025</div>
+                        <div class="market-change negative">-0.12%</div>
+                    </div>
+                </div>
+                <div class="market-item">
+                    <div class="market-icon icon-forex">A$</div>
+                    <div class="market-info">
+                        <div class="market-symbol">AUDUSD</div>
+                        <div class="market-name">Aussie / USD</div>
+                    </div>
+                    <div class="market-price-info">
+                        <div class="market-price">0.6580</div>
+                        <div class="market-change positive">+0.28%</div>
+                    </div>
+                </div>
+
+                <div class="market-category">₿ Crypto</div>
+                <div class="market-item">
+                    <div class="market-icon icon-crypto">₿</div>
+                    <div class="market-info">
+                        <div class="market-symbol">BTCUSD</div>
+                        <div class="market-name">Bitcoin / USD</div>
+                    </div>
+                    <div class="market-price-info">
+                        <div class="market-price">43,250</div>
+                        <div class="market-change positive">+2.34%</div>
+                    </div>
+                </div>
+                <div class="market-item">
+                    <div class="market-icon icon-crypto">Ξ</div>
+                    <div class="market-info">
+                        <div class="market-symbol">ETHUSD</div>
+                        <div class="market-name">Ethereum / USD</div>
+                    </div>
+                    <div class="market-price-info">
+                        <div class="market-price">2,280</div>
+                        <div class="market-change negative">-1.05%</div>
+                    </div>
+                </div>
+                <div class="market-item">
+                    <div class="market-icon icon-crypto">Ł</div>
+                    <div class="market-info">
+                        <div class="market-symbol">LTCUSD</div>
+                        <div class="market-name">Litecoin / USD</div>
+                    </div>
+                    <div class="market-price-info">
+                        <div class="market-price">72.45</div>
+                        <div class="market-change positive">+3.18%</div>
+                    </div>
+                </div>
+                <div class="market-item">
+                    <div class="market-icon icon-crypto">◇</div>
+                    <div class="market-info">
+                        <div class="market-symbol">SOLUSD</div>
+                        <div class="market-name">Solana / USD</div>
+                    </div>
+                    <div class="market-price-info">
+                        <div class="market-price">98.50</div>
+                        <div class="market-change positive">+5.62%</div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <section class="chart-area">
+            <div class="chart-header">
+                <div class="chart-asset-info">
+                    <div class="chart-asset-icon">Au</div>
+                    <div>
+                        <div class="chart-asset-name">XAUUSD</div>
+                        <div class="chart-asset-symbol">Gold Spot / US Dollar</div>
+                    </div>
+                </div>
+                <div class="chart-price-display">
+                    <div class="chart-current-price">2,034.50</div>
+                    <div class="chart-price-change">▲ +7.80 (+0.38%)</div>
+                </div>
+            </div>
+            <div class="chart-ohlc-row">
+                <span><span class="ohlc-label">Open</span> <span class="ohlc-value">2,028.15</span></span>
+                <span><span class="ohlc-label">High</span> <span class="ohlc-value">2,036.80</span></span>
+                <span><span class="ohlc-label">Low</span> <span class="ohlc-value">2,024.30</span></span>
+                <span><span class="ohlc-label">Close</span> <span class="ohlc-value">2,034.50</span></span>
+                <span><span class="ohlc-label">Vol</span> <span class="ohlc-value">48.2K</span></span>
+            </div>
+            <div class="chart-container">
+                <div class="chart-grid">
+                    <div class="grid-line" style="top:0%;"><span class="grid-line-price">2,048.00</span></div>
+                    <div class="grid-line" style="top:12.5%;"><span class="grid-line-price">2,044.00</span></div>
+                    <div class="grid-line" style="top:25%;"><span class="grid-line-price">2,040.00</span></div>
+                    <div class="grid-line" style="top:37.5%;"><span class="grid-line-price">2,036.00</span></div>
+                    <div class="grid-line" style="top:50%;"><span class="grid-line-price">2,032.00</span></div>
+                    <div class="grid-line" style="top:62.5%;"><span class="grid-line-price">2,028.00</span></div>
+                    <div class="grid-line" style="top:75%;"><span class="grid-line-price">2,024.00</span></div>
+                    <div class="grid-line" style="top:87.5%;"><span class="grid-line-price">2,020.00</span></div>
+                    <div class="grid-line" style="top:100%;"><span class="grid-line-price">2,016.00</span></div>
+                </div>
+
+                <div class="candles-wrapper" style="height:340px;">
+                    <div class="candle bullish" style="left:14px;top:148px;height:85px;"><div class="candle-body" style="top:28px;height:42px;"></div></div>
+                    <div class="candle bullish" style="left:28px;top:132px;height:74px;"><div class="candle-body" style="top:18px;height:45px;"></div></div>
+                    <div class="candle bearish" style="left:42px;top:118px;height:64px;"><div class="candle-body" style="top:40px;height:18px;"></div></div>
+                    <div class="candle bullish" style="left:56px;top:105px;height:80px;"><div class="candle-body" style="top:10px;height:55px;"></div></div>
+                    <div class="candle bullish" style="left:70px;top:90px;height:70px;"><div class="candle-body" style="top:8px;height:50px;"></div></div>
+                    <div class="candle bearish" style="left:84px;top:78px;height:58px;"><div class="candle-body" style="top:35px;height:15px;"></div></div>
+                    <div class="candle bullish" style="left:98px;top:65px;height:75px;"><div class="candle-body" style="top:12px;height:48px;"></div></div>
+                    <div class="candle bullish" style="left:112px;top:55px;height:68px;"><div class="candle-body" style="top:8px;height:52px;"></div></div>
+                    <div class="candle bearish" style="left:126px;top:48px;height:55px;"><div class="candle-body" style="top:28px;height:18px;"></div></div>
+                    <div class="candle bearish" style="left:140px;top:42px;height:62px;"><div class="candle-body" style="top:38px;height:16px;"></div></div>
+                    <div class="candle bullish" style="left:154px;top:36px;height:72px;"><div class="candle-body" style="top:8px;height:50px;"></div></div>
+                    <div class="candle bullish" style="left:168px;top:30px;height:60px;"><div class="candle-body" style="top:6px;height:44px;"></div></div>
+                    <div class="candle bearish" style="left:182px;top:25px;height:66px;"><div class="candle-body" style="top:40px;height:18px;"></div></div>
+                    <div class="candle bullish" style="left:196px;top:22px;height:70px;"><div class="candle-body" style="top:12px;height:46px;"></div></div>
+                    <div class="candle bullish" style="left:210px;top:18px;height:58px;"><div class="candle-body" style="top:6px;height:42px;"></div></div>
+                    <div class="candle bearish" style="left:224px;top:15px;height:64px;"><div class="candle-body" style="top:38px;height:16px;"></div></div>
+                    <div class="candle bullish" style="left:238px;top:20px;height:72px;"><div class="candle-body" style="top:10px;height:50px;"></div></div>
+                    <div class="candle bullish" style="left:252px;top:30px;height:68px;"><div class="candle-body" style="top:8px;height:48px;"></div></div>
+                    <div class="candle bearish" style="left:266px;top:40px;height:56px;"><div class="candle-body" style="top:30px;height:17px;"></div></div>
+                    <div class="candle bullish" style="left:280px;top:50px;height:74px;"><div class="candle-body" style="top:12px;height:52px;"></div></div>
+                    <div class="candle bullish" style="left:294px;top:58px;height:62px;"><div class="candle-body" style="top:6px;height:44px;"></div></div>
+                    <div class="candle bearish" style="left:308px;top:70px;height:58px;"><div class="candle-body" style="top:32px;height:16px;"></div></div>
+                    <div class="candle bullish" style="left:322px;top:80px;height:70px;"><div class="candle-body" style="top:10px;height:48px;"></div></div>
+                    <div class="candle bullish" style="left:336px;top:88px;height:66px;"><div class="candle-body" style="top:8px;height:46px;"></div></div>
+                    <div class="candle bearish" style="left:350px;top:95px;height:54px;"><div class="candle-body" style="top:26px;height:16px;"></div></div>
+                    <div class="candle bullish" style="left:364px;top:102px;height:72px;"><div class="candle-body" style="top:14px;height:48px;"></div></div>
+                    <div class="candle bullish" style="left:378px;top:110px;height:64px;"><div class="candle-body" style="top:8px;height:44px;"></div></div>
+                    <div class="candle bearish" style="left:392px;top:118px;height:58px;"><div class="candle-body" style="top:28px;height:16px;"></div></div>
+                    <div class="candle bullish" style="left:406px;top:125px;height:68px;"><div class="candle-body" style="top:12px;height:46px;"></div></div>
+                    <div class="candle bullish" style="left:420px;top:130px;height:62px;"><div class="candle-body" style="top:8px;height:42px;"></div></div>
+                </div>
+
+                <div class="current-price-line" style="top:148px;"></div>
+                <div class="current-price-label" style="top:148px;">2,034.50</div>
+
+                <div class="volume-bars">
+                    <div class="volume-bar vol-up" style="left:14px;height:28px;"></div>
+                    <div class="volume-bar vol-up" style="left:28px;height:35px;"></div>
+                    <div class="volume-bar vol-down" style="left:42px;height:22px;"></div>
+                    <div class="volume-bar vol-up" style="left:56px;height:38px;"></div>
+                    <div class="volume-bar vol-up" style="left:70px;height:42px;"></div>
+                    <div class="volume-bar vol-down" style="left:84px;height:18px;"></div>
+                    <div class="volume-bar vol-up" style="left:98px;height:36px;"></div>
+                    <div class="volume-bar vol-up" style="left:112px;height:40px;"></div>
+                    <div class="volume-bar vol-down" style="left:126px;height:20px;"></div>
+                    <div class="volume-bar vol-down" style="left:140px;height:16px;"></div>
+                    <div class="volume-bar vol-up" style="left:154px;height:34px;"></div>
+                    <div class="volume-bar vol-up" style="left:168px;height:30px;"></div>
+                    <div class="volume-bar vol-down" style="left:182px;height:15px;"></div>
+                    <div class="volume-bar vol-up" style="left:196px;height:32px;"></div>
+                    <div class="volume-bar vol-up" style="left:210px;height:28px;"></div>
+                    <div class="volume-bar vol-down" style="left:224px;height:14px;"></div>
+                    <div class="volume-bar vol-up" style="left:238px;height:36px;"></div>
+                    <div class="volume-bar vol-up" style="left:252px;height:30px;"></div>
+                    <div class="volume-bar vol-down" style="left:266px;height:18px;"></div>
+                    <div class="volume-bar vol-up" style="left:280px;height:34px;"></div>
+                    <div class="volume-bar vol-up" style="left:294px;height:28px;"></div>
+                    <div class="volume-bar vol-down" style="left:308px;height:16px;"></div>
+                    <div class="volume-bar vol-up" style="left:322px;height:32px;"></div>
+                    <div class="volume-bar vol-up" style="left:336px;height:26px;"></div>
+                    <div class="volume-bar vol-down" style="left:350px;height:14px;"></div>
+                    <div class="volume-bar vol-up" style="left:364px;height:30px;"></div>
+                    <div class="volume-bar vol-up" style="left:378px;height:24px;"></div>
+                    <div class="volume-bar vol-down" style="left:392px;height:12px;"></div>
+                    <div class="volume-bar vol-up" style="left:406px;height:28px;"></div>
+                    <div class="volume-bar vol-up" style="left:420px;height:22px;"></div>
+                </div>
+
+                <div class="chart-timeframe-bottom">
+                    <span>09:00</span><span>09:30</span><span>10:00</span><span>10:30</span>
+                    <span>11:00</span><span>11:30</span><span>12:00</span><span>12:30</span>
+                </div>
+            </div>
+        </section>
+
+        <aside class="right-sidebar">
+            <div class="funds-card">
+                <div>
+                    <div class="funds-label">Available Funds</div>
+                    <div class="funds-amount">****</div>
+                </div>
+                <div class="funds-icon">💳</div>
+            </div>
+
+            <div class="binary-section">
+                <div class="section-label">⚡ Binary Options</div>
+                <div class="duration-selector">
+                    <button class="duration-btn active-dur">60s</button>
+                    <button class="duration-btn">120s</button>
+                    <button class="duration-btn">180s</button>
+                    <button class="duration-btn">240s</button>
+                </div>
+                <input type="text" class="binary-amount-input" placeholder="Amount ($)" value="100">
+                <div class="binary-buttons">
+                    <button class="btn-buy-up">▲ Buy Up</button>
+                    <button class="btn-buy-down">▼ Buy Down</button>
+                </div>
+            </div>
+
+            <!-- ========== POSITIONS & ORDERS TABS ========== -->
+            <div class="positions-tabs">
+                <input type="radio" name="tabs" id="tab-pos" checked>
+                <input type="radio" name="tabs" id="tab-rec">
+                <div class="tab-headers">
+                    <label for="tab-pos">Open Positions (2)</label>
+                    <label for="tab-rec">Recent Orders (10)</label>
+                </div>
+
+                <!-- Open Positions Content -->
+                <div class="tab-content content-pos">
+                    <table class="trade-list">
+                        <thead>
+                            <tr><th>Pair</th><th>Type</th><th>Lot</th><th>Open</th><th>Current</th><th>P/L</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><strong>XAUUSD</strong></td>
+                                <td class="type-buy">Buy</td>
+                                <td>0.50</td>
+                                <td>2,028.15</td>
+                                <td>2,034.50</td>
+                                <td class="positive">+$317.50</td>
+                            </tr>
+                            <tr>
+                                <td><strong>EURUSD</strong></td>
+                                <td class="type-sell">Sell</td>
+                                <td>1.00</td>
+                                <td>1.0855</td>
+                                <td>1.0845</td>
+                                <td class="positive">+$100.00</td>
+                            </tr>
+                            <tr>
+                                <td><strong>BTCUSD</strong></td>
+                                <td class="type-buy">Buy</td>
+                                <td>0.10</td>
+                                <td>42,800</td>
+                                <td>43,250</td>
+                                <td class="positive">+$45.00</td>
+                            </tr>
+                            <tr>
+                                <td><strong>GBPUSD</strong></td>
+                                <td class="type-sell">Sell</td>
+                                <td>0.80</td>
+                                <td>1.2660</td>
+                                <td>1.2650</td>
+                                <td class="positive">+$80.00</td>
+                            </tr>
+                            <tr>
+                                <td><strong>USDJPY</strong></td>
+                                <td class="type-buy">Buy</td>
+                                <td>2.00</td>
+                                <td>151.20</td>
+                                <td>151.72</td>
+                                <td class="positive">+$1,040.00</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Recent Orders Content -->
+                <div class="tab-content content-rec">
+                    <table class="trade-list">
+                        <thead>
+                            <tr><th>Pair</th><th>Type</th><th>Lot</th><th>Price</th><th>Time</th><th>Status</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><strong>XAUUSD</strong></td>
+                                <td class="type-buy">Buy</td>
+                                <td>0.20</td>
+                                <td>2,030.10</td>
+                                <td>12:35</td>
+                                <td class="positive">Filled</td>
+                            </tr>
+                            <tr>
+                                <td><strong>ETHUSD</strong></td>
+                                <td class="type-sell">Sell</td>
+                                <td>0.50</td>
+                                <td>2,295.00</td>
+                                <td>12:28</td>
+                                <td class="positive">Filled</td>
+                            </tr>
+                            <tr>
+                                <td><strong>EURUSD</strong></td>
+                                <td class="type-buy">Buy</td>
+                                <td>1.20</td>
+                                <td>1.0845</td>
+                                <td>12:15</td>
+                                <td class="positive">Filled</td>
+                            </tr>
+                            <tr>
+                                <td><strong>SOLUSD</strong></td>
+                                <td class="type-sell">Sell</td>
+                                <td>0.30</td>
+                                <td>99.00</td>
+                                <td>12:02</td>
+                                <td class="negative">Cancelled</td>
+                            </tr>
+                            <tr>
+                                <td><strong>BTCUSD</strong></td>
+                                <td class="type-buy">Buy</td>
+                                <td>0.05</td>
+                                <td>42,950</td>
+                                <td>11:48</td>
+                                <td class="positive">Filled</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </aside>
+    </div>
+</body>
+</html>
