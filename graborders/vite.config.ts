@@ -27,6 +27,15 @@ export default defineConfig({
           'Origin': 'https://www.tradingview.com',
         },
       },
+      '/ws': {
+        target: 'wss://widgetdata.tradingview.com',
+        changeOrigin: true,
+        ws: true,
+        rewrite: (path) => path.replace(/^\/ws/, ''),
+        headers: {
+          'Origin': 'https://www.tradingview.com',
+        },
+      },
     },
   },
 });
