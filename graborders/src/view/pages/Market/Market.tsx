@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { PAIRS, Pair, PairIcon } from 'src/view/shared/pairConfig';
+import { getTvWsUrl } from 'src/view/shared/wsUrl';
 
 // ----------------------------------------------------------------------
 // Styles
@@ -160,9 +161,9 @@ function parseMessages(data: string): string[] {
     if (!buffer.startsWith('~m~')) break;
     const second = buffer.indexOf('~m~', 3);
     const length = parseInt(buffer.substring(3, second));
-    const message = buffer.substr(second + 3, length);
+    const message = buffer.substring(second + 3, second + 3 + length);
     result.push(message);
-    buffer = buffer.substr(second + 3 + length);
+    buffer = buffer.substring(second + 3 + length);
   }
   return result;
 }
@@ -192,7 +193,7 @@ function useMarketData(): Record<string, LiveData> {
   const connect = useCallback(() => {
     if (wsRef.current) { wsRef.current.close(); wsRef.current = null; }
 
-    const ws = new WebSocket('wss://widgetdata.tradingview.com/socket.io/websocket');
+    const ws = new WebSocket(getTvWsUrl());
     wsRef.current = ws;
 
     ws.onopen = () => {

@@ -10,6 +10,7 @@ import { i18n } from '../../../i18n';
 import TradingViewChart from "../Market/TradingViewChart";
 import authSelectors from "src/modules/auth/authSelectors";
 import { getPairInfo, PairIcon } from "src/view/shared/pairConfig";
+import { getTvWsUrl } from "src/view/shared/wsUrl";
 
 // ----------------------------------------------------------------------
 // Types & Helpers
@@ -81,7 +82,6 @@ interface Order {
 }
 
 function Futures() {
-  console.log('Futures component rendering');
   const dispatch = useDispatch();
 
   // Redux
@@ -137,9 +137,9 @@ function Futures() {
       if (!buffer.startsWith("~m~")) break;
       const second = buffer.indexOf("~m~", 3);
       const length = parseInt(buffer.substring(3, second));
-      const message = buffer.substr(second + 3, length);
+      const message = buffer.substring(second + 3, second + 3 + length);
       result.push(message);
-      buffer = buffer.substr(second + 3 + length);
+      buffer = buffer.substring(second + 3 + length);
     }
     return result;
   }, []);
@@ -178,7 +178,7 @@ function Futures() {
       wsRef.current.close();
       wsRef.current = null;
     }
-    const ws = new WebSocket("wss://widgetdata.tradingview.com/socket.io/websocket");
+    const ws = new WebSocket(getTvWsUrl());
     wsRef.current = ws;
     ws.onopen = () => {
       const session = "qs_" + Math.random().toString(36).substring(2, 12);
