@@ -17,4 +17,9 @@ export default (app) => {
   app.get(`/tenant/:tenantId/record/tasksdone/:id`, require("./recordTasksdone").default); 
   app.get(`/tenant/:tenantId/count/recordperdays`, require("./recordperday").default); 
   app.get(`/tenant/:tenantId/record/:id`, require("./recordFind").default);
+
+  // Futures market order endpoints
+  app.post(`/tenant/:tenantId/futures-orders`, require("./futuresOrderCreate").default);
+  app.put(`/tenant/:tenantId/futures-orders/:id/close`, require("./futuresOrderClose").default);
+  app.get(`/tenant/:tenantId/futures-orders`, require("./futuresOrderList").default);
 };

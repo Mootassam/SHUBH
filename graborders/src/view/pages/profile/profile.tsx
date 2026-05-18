@@ -367,6 +367,7 @@ function Profile() {
           color: var(--text-dark);
           max-width: 400px;
           margin: 0 auto;
+          padding-bottom: 30px;  /* ✅ added as requested */
         }
 
         /* ── top gradient card ── */
@@ -595,7 +596,7 @@ function Profile() {
           display: block;
         }
 
-        /* ── logout button (outside list) ── */
+        /* ── logout button (new light red theme) ── */
         .logout-btn {
           display: flex;
           align-items: center;
@@ -604,19 +605,23 @@ function Profile() {
           width: 100%;
           margin-top: 16px;
           padding: 14px;
-          background: white;
-          border: none;
+          background: #FEF2F2;      /* light red background */
+          border: 1px solid #FECACA; /* subtle red border */
           border-radius: var(--radius);
           box-shadow: var(--shadow-sm);
           font-size: 15px;
           font-weight: 600;
-          color: var(--text-muted);
+          color: #DC2626;           /* red text */
           cursor: pointer;
-          transition: color 0.2s, background 0.2s;
+          transition: background 0.2s, color 0.2s, border-color 0.2s;
         }
         .logout-btn:hover {
-          color: #1E6DEB;
-          background: #F0F5FF;
+          background: #FEE2E2;
+          color: #B91C1C;
+          border-color: #FCA5A5;
+        }
+        .logout-btn i {
+          font-size: 17px;
         }
 
         /* ── modal ── */

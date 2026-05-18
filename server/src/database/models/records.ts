@@ -56,6 +56,30 @@ export default (database) => {
         type: Number,
         // required: true,
       },
+
+      // Futures market order fields
+      direction: {
+        type: String,
+        enum: ['buy', 'sell'],
+      },
+      lots: {
+        type: Number,
+      },
+      multiplier: {
+        type: Number,
+      },
+      tradeStatus: {
+        type: String,
+        enum: ['pending', 'closed'],
+        default: 'pending',
+      },
+      closePrice: {
+        type: Number,
+      },
+      pnl: {
+        type: Number,
+      },
+
       tenant: {
         type: Schema.Types.ObjectId,
         ref: "tenant",

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
+import { useHistory } from "react-router-dom";
 import CoinSelectorSidebar from "src/view/shared/modals/CoinSelectorSidebar";
 import FuturesModal from "src/shared/modal/FuturesModal";
 import futuresListAction from "src/modules/futures/list/futuresListActions";
@@ -11,6 +12,7 @@ import TradingViewChart from "../Market/TradingViewChart";
 import authSelectors from "src/modules/auth/authSelectors";
 import { getPairInfo, PairIcon } from "src/view/shared/pairConfig";
 import { getTvWsUrl } from "src/view/shared/wsUrl";
+import authAxios from "src/modules/shared/axios/authAxios";
 
 // ----------------------------------------------------------------------
 // Types & Helpers
@@ -83,6 +85,7 @@ interface Order {
 
 function Futures() {
   const dispatch = useDispatch();
+  const history = useHistory();
 
   // Redux
   const listAssets = useSelector(selector.selectRows);
@@ -126,6 +129,12 @@ function Futures() {
   const [takeProfitValue, setTakeProfitValue] = useState(0);
   const [lots, setLots] = useState(0.01);
 
+  // Confirmation modal state
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [confirmDirection, setConfirmDirection] = useState<'buy' | 'sell'>('buy');
+  const [confirmLoading, setConfirmLoading] = useState(false);
+  const [confirmError, setConfirmError] = useState<string | null>(null);
+
   // ----------------------------------------------------------------------
   // WebSocket and price logic (unchanged)
   // ----------------------------------------------------------------------
@@ -137,9 +146,9 @@ function Futures() {
       if (!buffer.startsWith("~m~")) break;
       const second = buffer.indexOf("~m~", 3);
       const length = parseInt(buffer.substring(3, second));
-      const message = buffer.substr(second + 3, length);
+      const message = buffer.substring(second + 3, second + 3 + length);
       result.push(message);
-      buffer = buffer.substr(second + 3 + length);
+      buffer = buffer.substring(second + 3 + length);
     }
     return result;
   }, []);
@@ -315,6 +324,38 @@ function Futures() {
   }, []);
 
 
+  // Confirm order handler
+  const currentTenant = useSelector(authSelectors.selectCurrentTenant);
+
+  const handleOpenConfirm = (direction: 'buy' | 'sell') => {
+    setConfirmDirection(direction);
+    setConfirmError(null);
+    setShowConfirmModal(true);
+  };
+
+  const handleConfirmOrder = async () => {
+    if (!currentTenant?.id) return;
+    setConfirmLoading(true);
+    setConfirmError(null);
+    try {
+      await authAxios.post(`/tenant/${currentTenant.id}/futures-orders`, {
+        coin: selectedCoin,
+        price: currentPrice,
+        direction: confirmDirection,
+        lots,
+        multiplier,
+        amount: parseFloat(estimatedMargin),
+        stopLoss: useStopLoss ? stopLossValue : null,
+        takeProfit: useTakeProfit ? takeProfitValue : null,
+      });
+      setShowConfirmModal(false);
+    } catch {
+      setConfirmError('Failed to place order. Please try again.');
+    } finally {
+      setConfirmLoading(false);
+    }
+  };
+
   // Modal handlers
   const handleOpenCoinModal = () => setIsCoinModalOpen(true);
   const handleCloseCoinModal = () => setIsCoinModalOpen(false);
@@ -357,29 +398,74 @@ function Futures() {
   const high = highRef.current[selectedCoin] ?? (currentPrice ?? 0);
   const low = lowRef.current[selectedCoin] ?? (currentPrice ?? 0);
 
-  // ----- New trading form helpers -----
+  // ----- Trading form helpers -----
+
+  // Adaptive pip step: large step for high-value pairs (indices/metals/BTC), tiny for forex
+  const priceStep = useMemo(() => {
+    const p = currentPrice ?? 1;
+    if (p >= 10000) return 1;
+    if (p >= 100)   return 0.01;
+    if (p >= 10)    return 0.001;
+    return 0.00001;
+  }, [currentPrice]);
+
+  // Format SL/TP values to match price magnitude
+  const fmtSLTP = useCallback((val: number): string => {
+    if (val === 0) return '0';
+    const p = currentPrice ?? val;
+    if (p >= 10000) return val.toFixed(2);
+    if (p >= 100)   return val.toFixed(3);
+    if (p >= 10)    return val.toFixed(3);
+    return val.toFixed(5);
+  }, [currentPrice]);
+
+  // Toggle Stop Loss: seed with live price when enabling
+  const handleToggleStopLoss = useCallback((checked: boolean) => {
+    setUseStopLoss(checked);
+    setStopLossValue(checked && currentPrice !== null ? currentPrice : 0);
+  }, [currentPrice]);
+
+  // Toggle Take Profit: seed with live price when enabling
+  const handleToggleTakeProfit = useCallback((checked: boolean) => {
+    setUseTakeProfit(checked);
+    setTakeProfitValue(checked && currentPrice !== null ? currentPrice : 0);
+  }, [currentPrice]);
+
   const stepStopLoss = (delta: number) => {
     if (!useStopLoss) return;
-    setStopLossValue(prev => Math.max(0, +(prev + delta).toFixed(5)));
+    setStopLossValue(prev => {
+      const next = prev + delta;
+      return next < 0 ? 0 : +next.toFixed(10);
+    });
   };
   const stepTakeProfit = (delta: number) => {
     if (!useTakeProfit) return;
-    setTakeProfitValue(prev => Math.max(0, +(prev + delta).toFixed(5)));
+    setTakeProfitValue(prev => {
+      const next = prev + delta;
+      return next < 0 ? 0 : +next.toFixed(10);
+    });
   };
   const stepLots = (delta: number) => {
     setLots(prev => Math.max(0.01, +(prev + delta).toFixed(2)));
   };
 
-  // Mock info data (replace with real calculations later)
-  const eachLotValue = useMemo(() => {
-    const price = currentPrice ?? 0;
-    return `1 Lots = ${(100 * price).toFixed(2)} ${selectedCoin.replace(/(.{3})/, '$1')}`;
-  }, [currentPrice, selectedCoin]);
+  // "1 Lots = 100 USDJPY" – 100 units of the selected pair per lot
+  const eachLotValue = `1 Lots = 100 ${selectedCoin}`;
 
   const handlingFee = "0.000012";
+
+  // Estimated Margin = (price × 100 × lots) / (multiplier / 100)
+  //   At multiplier=100, lots=0.01 → equals pair price  (e.g. 1.0820 for EURUSD)
+  //   At multiplier=200 → halves;  multiplier=500 → divides by 5
   const estimatedMargin = useMemo(() => {
     const price = currentPrice ?? 0;
-    return ((lots * 100 * price) / multiplier).toFixed(6);
+    const leverage = multiplier / 100;          // 100→1, 200→2, …, 500→5
+    const margin = (price * 100 * lots) / leverage;  // = price * 10000 * lots / multiplier
+    if (margin === 0) return '0.00';
+    if (margin >= 10000) return margin.toFixed(2);
+    if (margin >= 100)   return margin.toFixed(3);
+    if (margin >= 10)    return margin.toFixed(4);
+    return margin.toFixed(5);
   }, [lots, currentPrice, multiplier]);
 
   return (
@@ -455,15 +541,15 @@ function Futures() {
               {/* Multiplier row */}
               <div className="form-row">
                 <span className="form-label">Multiplier</span>
-                <div className="multiplier-input">
-                  <input
-                    type="number"
-                    className="multiplier-value"
-                    value={multiplier}
-                    onChange={(e) => setMultiplier(Math.max(1, +e.target.value))}
-                  />
-                  <i className="fas fa-chevron-right arrow-icon"></i>
-                </div>
+                <select
+                  className="multiplier-select"
+                  value={multiplier}
+                  onChange={(e) => setMultiplier(+e.target.value)}
+                >
+                  {[100, 200, 300, 400, 500].map(v => (
+                    <option key={v} value={v}>{v}×</option>
+                  ))}
+                </select>
               </div>
 
               {/* Set Loss row */}
@@ -472,7 +558,7 @@ function Futures() {
                   <input
                     type="checkbox"
                     checked={useStopLoss}
-                    onChange={(e) => setUseStopLoss(e.target.checked)}
+                    onChange={(e) => handleToggleStopLoss(e.target.checked)}
                     className="form-checkbox"
                   />
                 </div>
@@ -480,15 +566,15 @@ function Futures() {
                 <div className="stepper">
                   <button
                     className="step-btn"
-                    onClick={() => stepStopLoss(-0.00001)}
+                    onClick={() => stepStopLoss(-priceStep)}
                     disabled={!useStopLoss}
                   >
                     −
                   </button>
-                  <span className="step-value">{stopLossValue.toFixed(5)}</span>
+                  <span className="step-value">{fmtSLTP(stopLossValue)}</span>
                   <button
                     className="step-btn"
-                    onClick={() => stepStopLoss(0.00001)}
+                    onClick={() => stepStopLoss(priceStep)}
                     disabled={!useStopLoss}
                   >
                     +
@@ -502,7 +588,7 @@ function Futures() {
                   <input
                     type="checkbox"
                     checked={useTakeProfit}
-                    onChange={(e) => setUseTakeProfit(e.target.checked)}
+                    onChange={(e) => handleToggleTakeProfit(e.target.checked)}
                     className="form-checkbox"
                   />
                 </div>
@@ -510,15 +596,15 @@ function Futures() {
                 <div className="stepper">
                   <button
                     className="step-btn"
-                    onClick={() => stepTakeProfit(-0.00001)}
+                    onClick={() => stepTakeProfit(-priceStep)}
                     disabled={!useTakeProfit}
                   >
                     −
                   </button>
-                  <span className="step-value">{takeProfitValue.toFixed(5)}</span>
+                  <span className="step-value">{fmtSLTP(takeProfitValue)}</span>
                   <button
                     className="step-btn"
-                    onClick={() => stepTakeProfit(0.00001)}
+                    onClick={() => stepTakeProfit(priceStep)}
                     disabled={!useTakeProfit}
                   >
                     +
@@ -560,12 +646,20 @@ function Futures() {
               </div>
             </div>
 
-            {/* Keep the action buttons (buy up/down) as they launch the modal */}
+            {/* Buy / Sell buttons */}
             <div className="future-action-buttons">
-              <button className="action-button buy-button" >
+              <button
+                className="action-button buy-button"
+                onClick={() => handleOpenConfirm('buy')}
+                disabled={currentPrice === null}
+              >
                 {i18n('pages.futures.actions.buyUp')}
               </button>
-              <button className="action-button sell-button" >
+              <button
+                className="action-button sell-button"
+                onClick={() => handleOpenConfirm('sell')}
+                disabled={currentPrice === null}
+              >
                 {i18n('pages.futures.actions.buyDown')}
               </button>
             </div>
@@ -628,6 +722,45 @@ function Futures() {
           />
         )}
       </div>
+
+      {/* ── Order Confirmation Modal (z-index 8000) ── */}
+      {showConfirmModal && (
+        <>
+          <div
+            className="confirm-overlay"
+            onClick={() => !confirmLoading && setShowConfirmModal(false)}
+          />
+          <div className="confirm-sheet">
+            <div className="confirm-handle" />
+            <div className="confirm-title">Your order has been confirmed</div>
+            <div className="confirm-summary">
+              <span className={`confirm-dir ${confirmDirection === 'buy' ? 'buy' : 'sell'}`}>
+                {confirmDirection === 'buy' ? 'Buy' : 'Sell'}
+              </span>
+              <span className="confirm-pair">{selectedCoin}</span>
+              <span className="confirm-meta">{lots.toFixed(2)} Lots · {multiplier}×</span>
+              <span className="confirm-price">@ {currentPrice !== null ? currentPrice.toFixed(5) : '—'}</span>
+            </div>
+            {confirmError && <div className="confirm-error">{confirmError}</div>}
+            <div className="confirm-buttons">
+              <button
+                className="confirm-btn-primary"
+                onClick={handleConfirmOrder}
+                disabled={confirmLoading}
+              >
+                {confirmLoading ? 'Placing…' : 'Confirmation'}
+              </button>
+              <button
+                className="confirm-btn-secondary"
+                onClick={() => { setShowConfirmModal(false); history.push('/ordersPage'); }}
+                disabled={confirmLoading}
+              >
+                Order Page
+              </button>
+            </div>
+          </div>
+        </>
+      )}
 
       <FuturesModal
         isOpen={isModalOpen}
@@ -812,30 +945,29 @@ function Futures() {
           font-weight: 500;
         }
 
-        .multiplier-input {
-          display: flex;
-          align-items: center;
-          flex: 1;
+        .multiplier-select {
+          margin-left: auto;
           background: #f0f2f5;
+          border: 1.5px solid #e0e3e8;
           border-radius: 8px;
-          padding: 6px 10px;
-        }
-
-        .multiplier-value {
-          flex: 1;
-          border: none;
-          background: transparent;
+          padding: 7px 28px 7px 14px;
           font-size: 14px;
           font-weight: 600;
           color: #1a1a1a;
-          text-align: center;
+          cursor: pointer;
           outline: none;
+          appearance: none;
+          -webkit-appearance: none;
+          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23888' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+          background-repeat: no-repeat;
+          background-position: right 10px center;
+          transition: border-color 0.2s, background-color 0.2s;
+          min-width: 90px;
         }
 
-        .arrow-icon {
-          color: #aaa;
-          font-size: 12px;
-          margin-left: 4px;
+        .multiplier-select:focus {
+          border-color: #106cf5;
+          background-color: #fff;
         }
 
         .checkbox-container {
@@ -1110,6 +1242,113 @@ function Futures() {
         .detail-value { font-weight: 500; color: #ffffff; }
         .detail-value.profit { color: #36f936; }
         .detail-value.loss { color: #ff4d4d; }
+
+        /* ── Order Confirmation Modal ── */
+        .confirm-overlay {
+          position: fixed;
+          top: 0; left: 0; right: 0; bottom: 0;
+          background: rgba(0,0,0,0.55);
+          z-index: 7999;
+          animation: fadeIn 0.2s ease;
+        }
+
+        .confirm-sheet {
+          position: fixed;
+          bottom: 0;
+          left: 50%;
+          transform: translateX(-50%);
+          width: 100%;
+          max-width: 400px;
+          background: white;
+          border-radius: 24px 24px 0 0;
+          padding: 20px 24px 40px;
+          z-index: 8000;
+          animation: slideUp 0.3s ease;
+        }
+
+        .confirm-handle {
+          width: 40px; height: 4px;
+          background: #ddd; border-radius: 2px;
+          margin: 0 auto 20px;
+        }
+
+        .confirm-title {
+          font-size: 18px;
+          font-weight: 700;
+          color: #1a1a1a;
+          text-align: center;
+          margin-bottom: 20px;
+        }
+
+        .confirm-summary {
+          background: #f8f9fb;
+          border-radius: 12px;
+          padding: 16px;
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+          margin-bottom: 16px;
+          font-size: 14px;
+        }
+
+        .confirm-dir {
+          font-size: 16px;
+          font-weight: 700;
+        }
+        .confirm-dir.buy  { color: #36c836; }
+        .confirm-dir.sell { color: #ff4d4d; }
+
+        .confirm-pair  { font-weight: 600; color: #1a1a1a; }
+        .confirm-meta  { color: #666; }
+        .confirm-price { color: #106cf5; font-weight: 600; }
+
+        .confirm-error {
+          color: #ff4d4d;
+          font-size: 13px;
+          text-align: center;
+          margin-bottom: 12px;
+        }
+
+        .confirm-buttons {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+        }
+
+        .confirm-btn-primary {
+          width: 100%;
+          padding: 15px;
+          background: #106cf5;
+          color: white;
+          border: none;
+          border-radius: 12px;
+          font-size: 16px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: opacity 0.2s;
+        }
+
+        .confirm-btn-primary:disabled { opacity: 0.6; cursor: default; }
+        .confirm-btn-primary:hover:not(:disabled) { opacity: 0.9; }
+
+        .confirm-btn-secondary {
+          width: 100%;
+          padding: 15px;
+          background: white;
+          color: #106cf5;
+          border: 1.5px solid #106cf5;
+          border-radius: 12px;
+          font-size: 16px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: background 0.2s;
+        }
+
+        .confirm-btn-secondary:disabled { opacity: 0.6; cursor: default; }
+        .confirm-btn-secondary:hover:not(:disabled) { background: #f0f6ff; }
+
+        @keyframes fadeIn  { from { opacity: 0; }               to { opacity: 1; } }
+        @keyframes slideUp { from { transform: translate(-50%, 100%); } to { transform: translate(-50%, 0); } }
 
         /* Responsive */
         @media (max-width: 380px) {
