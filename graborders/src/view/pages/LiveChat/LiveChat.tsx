@@ -1,342 +1,270 @@
-import React, { useEffect } from "react";
-import { useSelector, useDispatch } from "react-redux";
-import { Link } from 'react-router-dom';
-import actions from "src/modules/category/list/categoryListActions";
-import selector from "src/modules/category/list/categoryListSelectors";
-import LoadingModal from "src/shared/LoadingModal";
-import { i18n } from "../../../i18n";
+import { useEffect, useState } from 'react';
+import { useHistory } from 'react-router-dom';
 
-function Online() {
-  const dispatch = useDispatch();
+const CRISP_WEBSITE_ID = 'ab42b4d9-6c25-43e7-9e5a-13da903a28f3';
 
-  const record = useSelector(selector.selectRows);
-  const loading = useSelector(selector.selectLoading);
+declare global {
+  interface Window {
+    $crisp: any[];
+    CRISP_WEBSITE_ID: string;
+  }
+}
+
+type ChatState = 'loading' | 'open' | 'closed';
+
+function LiveChat() {
+  const history = useHistory();
+  const [chatState, setChatState] = useState<ChatState>('loading');
 
   useEffect(() => {
-    dispatch(actions.doFetch());
-    // eslint-disable-next-line
-  }, [dispatch]);
+    window.$crisp = window.$crisp || [];
+    window.CRISP_WEBSITE_ID = CRISP_WEBSITE_ID;
+
+    const boot = () => {
+      window.$crisp.push(['do', 'chat:show']);
+      window.$crisp.push(['do', 'chat:open']);
+      setChatState('open');
+      window.$crisp.push(['on', 'chat:closed', () => setChatState('closed')]);
+      window.$crisp.push(['on', 'chat:opened', () => setChatState('open')]);
+    };
+
+    if (!document.getElementById('crisp-js')) {
+      const s = document.createElement('script');
+      s.id = 'crisp-js';
+      s.src = 'https://client.crisp.chat/l.js';
+      s.async = true;
+      s.onload = boot;
+      document.head.appendChild(s);
+    } else {
+      boot();
+    }
+
+    return () => {
+      try {
+        window.$crisp.push(['off', 'chat:closed']);
+        window.$crisp.push(['off', 'chat:opened']);
+        window.$crisp.push(['do', 'chat:close']);
+        window.$crisp.push(['do', 'chat:hide']);
+      } catch {}
+    };
+  }, []);
+
+  const handleBack = () => {
+    try {
+      window.$crisp.push(['off', 'chat:closed']);
+      window.$crisp.push(['off', 'chat:opened']);
+      window.$crisp.push(['do', 'chat:close']);
+      window.$crisp.push(['do', 'chat:hide']);
+    } catch {}
+    history.goBack();
+  };
+
+  const handleReopen = () => {
+    try {
+      window.$crisp.push(['do', 'chat:show']);
+      window.$crisp.push(['do', 'chat:open']);
+    } catch {}
+  };
 
   return (
-    <div className="customer-service-container">
-      {/* Header */}
-      <div className="header">
-        <div className="nav-bar">
-          <Link to="/profile" className="back-arrow">
-            <i className="fas fa-arrow-left" />
-          </Link>
-          <div className="page-title">{i18n('pages.online.title')}</div>
-        </div>
+    <div className="lc-page">
+      {/* ── Header ── */}
+      <div className="lc-header">
+        <button className="lc-back" onClick={handleBack} aria-label="Go back">
+          <i className="fas fa-arrow-left" />
+        </button>
+        <span className="lc-title">Online Customer Service</span>
+        <div className="lc-status-dot" data-state={chatState} />
       </div>
 
-      {/* Content Card */}
-      <div className="content-card">
-        {/* Service Description */}
-        <div className="service-description">
-          <div className="description-content">
-            <i className="fa-solid fa-comments description-icon"></i>
-            <p className="description-text">
-              {i18n('pages.online.description')}
-            </p>
+      {/* ── Body (shown behind / around the Crisp widget) ── */}
+      <div className="lc-body">
+        {chatState === 'loading' && (
+          <div className="lc-state">
+            <div className="lc-spinner" />
+            <p className="lc-hint">Connecting to customer service…</p>
           </div>
-        </div>
+        )}
 
-        {/* Support Agents List */}
-        <div className="support-agents-list">
-          {loading && <LoadingModal />}
-          {!loading && record && record.map((item, index) => (
-            <div className="agent-card" key={index}>
-              <div className="agent-header">
-                <h3 className="agent-name">{item?.name}</h3>
-                <div className={`platform-badge ${item.type}`}>
-                  {item.type === "whatsApp" ? (
-                    <i className="fa-brands fa-whatsapp"></i>
-                  ) : (
-                    <i className="fa-brands fa-telegram"></i>
-                  )}
-                </div>
-              </div>
-
-              <div className="agent-photo-container">
-                <img
-                  src={item?.photo[0]?.downloadUrl}
-                  alt={item?.name}
-                  className="agent-photo"
-                />
-                <div className="status-dot online"></div>
-              </div>
-
-              <div className="agent-actions">
-                {item.type === "whatsApp" ? (
-                  <a
-                    href={`https://wa.me/${item.number}`}
-                    className="contact-button"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    <i className="fa-brands fa-whatsapp"></i>
-                    <span>{i18n('pages.online.contactWhatsApp')}</span>
-                  </a>
-                ) : (
-                  <a
-                    href={`https://t.me/${item.number}`}
-                    className="contact-button"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    <i className="fa-brands fa-telegram"></i>
-                    <span>{i18n('pages.online.contactTelegram')}</span>
-                  </a>
-                )}
-              </div>
+        {chatState === 'open' && (
+          <div className="lc-state">
+            <div className="lc-chat-icon">
+              <i className="fas fa-comments" />
             </div>
-          ))}
-        </div>
+            <p className="lc-hint">Live chat is open</p>
+            <p className="lc-sub">Our team is ready to help you 24/7</p>
+          </div>
+        )}
+
+        {chatState === 'closed' && (
+          <div className="lc-state">
+            <div className="lc-chat-icon done">
+              <i className="fas fa-check-circle" />
+            </div>
+            <p className="lc-hint">Thank you for contacting us!</p>
+            <p className="lc-sub">
+              We hope we could help. Feel free to reach out anytime.
+            </p>
+            <button className="lc-reopen-btn" onClick={handleReopen}>
+              <i className="fas fa-comments" />
+              Reopen Chat
+            </button>
+          </div>
+        )}
       </div>
 
       <style>{`
-        * {
-          margin: 0;
-          padding: 0;
-          box-sizing: border-box;
-          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
 
-        body {
-          background-color: #f5f7fa;
-          color: #333;
-        }
-
-        /* Customer Service Container – matches Proof template */
-        .customer-service-container {
+        .lc-page {
           max-width: 400px;
           margin: 0 auto;
           min-height: 100vh;
           background: linear-gradient(135deg, #106cf5 0%, #0a4fc4 100%);
           display: flex;
           flex-direction: column;
-          box-sizing: border-box;
         }
 
-        /* Header */
-        .header {
-          min-height: 60px;
-          padding: 20px;
-          position: relative;
-        }
-
-        .nav-bar {
+        /* ── Header ── */
+        .lc-header {
           display: flex;
-          justify-content: space-between;
           align-items: center;
+          gap: 12px;
+          padding: 20px 20px 16px;
+          position: sticky;
+          top: 0;
+          z-index: 9999;
+          background: linear-gradient(135deg, #106cf5 0%, #0a4fc4 100%);
         }
 
-        .back-arrow {
+        .lc-back {
+          background: rgba(255,255,255,0.15);
+          border: none;
+          border-radius: 50%;
+          width: 38px;
+          height: 38px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
           color: white;
-          font-size: 20px;
-          text-decoration: none;
-          transition: opacity 0.3s ease;
+          font-size: 16px;
+          cursor: pointer;
+          flex-shrink: 0;
+          transition: background 0.2s;
         }
-        .back-arrow:hover {
-          opacity: 0.8;
-        }
+        .lc-back:hover { background: rgba(255,255,255,0.25); }
+        .lc-back:active { background: rgba(255,255,255,0.1); }
 
-        .page-title {
+        .lc-title {
+          flex: 1;
           color: white;
           font-size: 17px;
           font-weight: 600;
-          position: absolute;
-          left: 50%;
-          transform: translateX(-50%);
+          text-align: center;
+          margin-right: 38px; /* balance the back button */
         }
 
-        /* Content Card */
-        .content-card {
+        .lc-status-dot {
+          display: none; /* positioned in title area for balance */
+        }
+
+        /* ── Body ── */
+        .lc-body {
           flex: 1;
           background: white;
           border-radius: 40px 40px 0 0;
-          padding: 25px 20px 100px;
-          box-shadow: 0 -5px 20px rgba(0, 0, 0, 0.05);
-          min-height: calc(100vh - 60px);
-        }
-
-        /* Service Description */
-        .service-description {
-          background: #f0f7ff;
-          border: 1px solid #e6f0ff;
-          border-radius: 12px;
-          padding: 16px;
-          margin-bottom: 24px;
-        }
-
-        .description-content {
           display: flex;
-          align-items: flex-start;
-          gap: 10px;
+          align-items: center;
+          justify-content: center;
+          padding: 40px 24px;
+          min-height: calc(100vh - 74px);
         }
 
-        .description-icon {
-          font-size: 20px;
-          color: #106cf5;
-          margin-top: 2px;
-          flex-shrink: 0;
+        /* ── State block ── */
+        .lc-state {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 12px;
+          text-align: center;
+          max-width: 280px;
         }
 
-        .description-text {
-          font-size: 14px;
-          color: #555;
+        /* Loading spinner */
+        .lc-spinner {
+          width: 52px;
+          height: 52px;
+          border: 4px solid #e0eaff;
+          border-top-color: #106cf5;
+          border-radius: 50%;
+          animation: lc-spin 0.9s linear infinite;
+        }
+        @keyframes lc-spin { to { transform: rotate(360deg); } }
+
+        /* Chat icon circle */
+        .lc-chat-icon {
+          width: 72px;
+          height: 72px;
+          border-radius: 50%;
+          background: linear-gradient(135deg, #106cf5, #0a4fc4);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: white;
+          font-size: 30px;
+          box-shadow: 0 8px 24px rgba(16,108,245,0.30);
+          animation: lc-pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .lc-chat-icon.done {
+          background: linear-gradient(135deg, #22c55e, #16a34a);
+          box-shadow: 0 8px 24px rgba(34,197,94,0.30);
+        }
+        @keyframes lc-pop {
+          from { transform: scale(0.5); opacity: 0; }
+          to   { transform: scale(1);   opacity: 1; }
+        }
+
+        .lc-hint {
+          font-size: 17px;
+          font-weight: 700;
+          color: #1a1a1a;
+          line-height: 1.3;
+        }
+
+        .lc-sub {
+          font-size: 13px;
+          color: #888;
           line-height: 1.5;
-          margin: 0;
         }
 
-        /* Agents List */
-        .support-agents-list {
-          display: flex;
-          flex-direction: column;
-          gap: 16px;
-        }
-
-        /* Agent Card */
-        .agent-card {
-          background: #f8f9fa;
-          border: 1px solid #e7eaee;
-          border-radius: 12px;
-          padding: 20px;
-          transition: all 0.3s ease;
-        }
-        .agent-card:hover {
-          border-color: #106cf5;
-          box-shadow: 0 0 0 2px rgba(16, 108, 245, 0.1);
-        }
-
-        /* Agent Header */
-        .agent-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 16px;
-        }
-        .agent-name {
-          font-size: 16px;
-          font-weight: 600;
-          color: #222;
-          margin: 0;
-        }
-
-        .platform-badge {
-          width: 32px;
-          height: 32px;
-          border-radius: 50%;
+        /* Reopen button */
+        .lc-reopen-btn {
+          margin-top: 8px;
           display: flex;
           align-items: center;
-          justify-content: center;
-          font-size: 16px;
-        }
-        .platform-badge.whatsApp {
-          background-color: rgba(37, 211, 102, 0.15);
-          color: #25D366;
-        }
-        .platform-badge.telegram {
-          background-color: rgba(0, 136, 204, 0.15);
-          color: #0088cc;
-        }
-
-        /* Agent Photo */
-        .agent-photo-container {
-          position: relative;
-          width: 80px;
-          height: 80px;
-          margin: 0 auto 16px;
-        }
-
-        .agent-photo {
-          width: 100%;
-          height: 100%;
-          border-radius: 50%;
-          object-fit: cover;
-          border: 2px solid #e7eaee;
-          box-shadow: 0 2px 6px rgba(0,0,0,0.08);
-        }
-
-        .status-dot {
-          position: absolute;
-          bottom: 4px;
-          right: 4px;
-          width: 16px;
-          height: 16px;
-          border-radius: 50%;
-          border: 2px solid white;
-          background-color: #999;
-        }
-        .status-dot.online {
-          background-color: #25D366;
-        }
-
-        /* Contact Button */
-        .agent-actions {
-          display: flex;
-          flex-direction: column;
-        }
-        .contact-button {
-          display: flex;
-          align-items: center;
-          justify-content: center;
           gap: 8px;
-          width: 100%;
-          padding: 12px;
           background: #106cf5;
           color: white;
           border: none;
-          border-radius: 8px;
-          font-size: 14px;
+          border-radius: 12px;
+          padding: 14px 28px;
+          font-size: 15px;
           font-weight: 600;
           cursor: pointer;
-          text-decoration: none;
-          transition: all 0.3s ease;
+          transition: opacity 0.2s, transform 0.15s;
+          box-shadow: 0 4px 16px rgba(16,108,245,0.30);
         }
-        .contact-button:hover {
-          background: #0a4fc4;
-          transform: translateY(-2px);
-          box-shadow: 0 6px 20px rgba(16, 108, 245, 0.3);
-        }
-        .contact-button:active {
-          transform: translateY(0);
-        }
+        .lc-reopen-btn:hover  { opacity: 0.9; transform: translateY(-1px); }
+        .lc-reopen-btn:active { opacity: 1;   transform: translateY(0); }
 
-        /* Loading Modal (override if necessary) */
-        .loading-modal {
-          background: rgba(255, 255, 255, 0.9);
-          color: #106cf5;
-        }
-
-        /* Responsive adjustments */
         @media (max-width: 380px) {
-          .header {
-            padding: 16px;
-            min-height: 50px;
-          }
-          .content-card {
-            padding: 20px 16px 80px;
-            border-radius: 30px 30px 0 0;
-          }
-          .agent-card {
-            padding: 16px;
-          }
-          .agent-photo-container {
-            width: 70px;
-            height: 70px;
-          }
-        }
-
-        @media (min-width: 768px) {
-          .content-card {
-            border-radius: 30px 30px 0 0;
-            padding: 30px 25px 100px;
-          }
+          .lc-header { padding: 16px 16px 12px; }
+          .lc-body   { padding: 32px 20px; border-radius: 32px 32px 0 0; }
         }
       `}</style>
     </div>
   );
 }
 
-export default Online;
+export default LiveChat;

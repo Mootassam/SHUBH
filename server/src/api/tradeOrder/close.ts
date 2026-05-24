@@ -49,11 +49,13 @@ export default async (req, res, next) => {
       }
     );
 
-    // ── Update wallet (credit/debit P&L) ────────────────────────────────────
+    // ── Update wallet: return estimatedMargin + apply P&L ───────────────────
+    // estimatedMargin was deducted at creation; now return it plus the net gain/loss
+    const estMargin = order.estimatedMargin ?? order.margin ?? 0;
     const WalletModel = Wallet(req.database);
     await WalletModel.findOneAndUpdate(
       { user: currentUser.id, symbol: 'USDT', tenant: currentTenant.id, accountType: 'exchange' },
-      { $inc: { amount: netPnl } },
+      { $inc: { amount: estMargin + netPnl } },
       { upsert: false }
     );
 

@@ -33,11 +33,14 @@ export default async (req, res, next) => {
       return res.status(400).json({ errors: [{ message: `Cannot close order with status: ${order.status}` }] });
     }
 
-    // ── Calculate P&L from margin percentage ─────────────────────────────
-    const pnlAbs = parseFloat((order.margin * pct / 100).toFixed(5));
+    // Use estimatedMargin as the P&L base (fallback to margin for legacy orders)
+    const estMargin = order.estimatedMargin ?? order.margin ?? 0;
+
+    // ── Calculate P&L from estimatedMargin percentage ─────────────────────
+    const pnlAbs = parseFloat(((estMargin * pct) / 100).toFixed(5));
     const netPnl = control === 'profit' ? pnlAbs : -pnlAbs;
 
-    // Derive a synthetic closePrice that is consistent with the netPnl
+    // Derive a synthetic closePrice consistent with the netPnl
     // netPnl = (priceDiff * lots * CONTRACT_SIZE) - fee
     // priceDiff = (netPnl + fee) / (lots * CONTRACT_SIZE)
     const priceDiff = (netPnl + (order.fee || 0)) / ((order.lots || 1) * CONTRACT_SIZE);
@@ -61,19 +64,19 @@ export default async (req, res, next) => {
     );
 
     // ── Update the trade owner's wallet ───────────────────────────────────
-    if (netPnl !== 0) {
-      const WalletModel = Wallet(req.database);
-      await WalletModel.findOneAndUpdate(
-        {
-          user:        order.user,
-          symbol:      'USDT',
-          tenant:      currentTenant.id,
-          accountType: 'exchange',
-        },
-        { $inc: { amount: netPnl } },
-        { upsert: false }
-      );
-    }
+    // Return the estimatedMargin that was deducted at creation, plus the net P&L
+    const walletReturn = estMargin + netPnl;
+    const WalletModel = Wallet(req.database);
+    await WalletModel.findOneAndUpdate(
+      {
+        user:        order.user,
+        symbol:      'USDT',
+        tenant:      currentTenant.id,
+        accountType: 'exchange',
+      },
+      { $inc: { amount: walletReturn } },
+      { upsert: false }
+    );
 
     const updated = await TradeOrderModel.findById(id);
     await ApiResponseHandler.success(req, res, updated);

@@ -2189,7 +2189,8 @@ const en = {
       futures: "Futures",
       history: "history",
       wallets: "Assets", 
-      profile: "Profile"
+      profile: "Profile", 
+      news: "News",
     },
     coinListModal: {
       title: "Select Cryptocurrency",

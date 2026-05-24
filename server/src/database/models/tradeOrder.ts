@@ -17,10 +17,11 @@ export default (database) => {
       direction:  { type: String, enum: ['buy', 'sell'], required: true },
 
       // Sizing
-      lots:       { type: Number, required: true, min: 0.01 },
-      multiplier: { type: Number, required: true },
-      margin:     { type: Number, default: 0 },
-      fee:        { type: Number, default: 0 },
+      lots:            { type: Number, required: true, min: 0.01 },
+      multiplier:      { type: Number, required: true },
+      estimatedMargin: { type: Number, default: 0 },
+      margin:          { type: Number, default: 0 },   // kept for legacy reads
+      fee:             { type: Number, default: 0 },
 
       // Prices
       entryPrice:     { type: Number },

@@ -91,6 +91,17 @@ export default class AuthService {
     return response.data;
   }
 
+  static async changeWithdrawPassword(oldPassword: string | undefined, newPassword: string) {
+    const tenantId = AuthCurrentTenant.get();
+    const body: any = { newPassword };
+    if (oldPassword) body.oldPassword = oldPassword;
+    const response = await authAxios.put(
+      `/tenant/${tenantId}/user/changeWithdrawalPassword`,
+      body
+    );
+    return response.data;
+  }
+
 
 
 

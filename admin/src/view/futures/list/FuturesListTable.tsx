@@ -14,6 +14,7 @@ interface TradeOrder {
   direction: 'buy' | 'sell';
   lots: number;
   multiplier: number;
+  estimatedMargin?: number;
   margin: number;
   fee: number;
   entryPrice?: number;
@@ -57,9 +58,24 @@ function fmtMoney(n: number): string {
   return `$${Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
+const CONTRACT_SIZE = 100;
+
 function calcNetPnl(margin: number, pct: number, control: ControlType): number {
   const abs = parseFloat(((margin * pct) / 100).toFixed(5));
   return control === 'profit' ? abs : -abs;
+}
+
+function calcPredictedClosePrice(order: TradeOrder, pct: number, control: ControlType): number | null {
+  if (!order.entryPrice) return null;
+  const estMargin = order.estimatedMargin ?? order.margin;
+  const netPnl    = calcNetPnl(estMargin, pct, control);
+  const fee       = order.fee || 0;
+  const lots      = order.lots || 1;
+  const priceDiff = (netPnl + fee) / (lots * CONTRACT_SIZE);
+  const raw       = order.direction === 'buy'
+    ? order.entryPrice + priceDiff
+    : order.entryPrice - priceDiff;
+  return parseFloat(raw.toFixed(5));
 }
 
 function getUserLabel(user?: TradeOrder['user']): string {
@@ -195,7 +211,8 @@ function FuturesListTable() {
                 <th className="table-th">Lots</th>
                 <th className="table-th">Multiplier</th>
                 <th className="table-th">Entry / Target</th>
-                <th className="table-th">Margin</th>
+                <th className="table-th">Close Price</th>
+                <th className="table-th">Est. Margin</th>
                 <th className="table-th">Status</th>
                 <th className="table-th">P&amp;L</th>
                 <th className="table-th">Opened</th>
@@ -207,7 +224,7 @@ function FuturesListTable() {
             <tbody className="table-body">
               {loading && (
                 <tr>
-                  <td colSpan={14} className="loading-cell">
+                  <td colSpan={15} className="loading-cell">
                     <div className="loading-container">
                       <Spinner />
                       <span className="loading-text">Loading orders…</span>
@@ -218,7 +235,7 @@ function FuturesListTable() {
 
               {!loading && orders.length === 0 && (
                 <tr>
-                  <td colSpan={14} className="no-data-cell">
+                  <td colSpan={15} className="no-data-cell">
                     <div className="no-data-content">
                       <i className="fas fa-inbox no-data-icon" />
                       <p>No trade orders found</p>
@@ -228,12 +245,13 @@ function FuturesListTable() {
               )}
 
               {!loading && orders.map((order, idx) => {
-                const pctRaw     = rowPct[order.id] || '';
-                const pct        = parseFloat(pctRaw) || 0;
-                const ctrl       = rowControl[order.id] ?? null;
-                const netPnl     = ctrl && pct > 0 ? calcNetPnl(order.margin, pct, ctrl) : null;
-                const walletDiff = netPnl;
-                const canClose   = ctrl !== null && pct > 0 && pct <= 100;
+                const pctRaw      = rowPct[order.id] || '';
+                const pct         = parseFloat(pctRaw) || 0;
+                const ctrl        = rowControl[order.id] ?? null;
+                const effMargin   = order.estimatedMargin ?? order.margin;
+                const netPnl      = ctrl && pct > 0 ? calcNetPnl(effMargin, pct, ctrl) : null;
+                const walletDiff  = netPnl;
+                const canClose    = ctrl !== null && pct > 0 && pct <= 100;
                 const isClosing  = closingId === order.id;
                 const isCancelling = cancellingId === order.id;
 
@@ -275,13 +293,25 @@ function FuturesListTable() {
                         ? <span title="Trigger price" className="to-target">{fmtPrice(order.targetPrice)}</span>
                         : fmtPrice(order.entryPrice)
                       }
-                      {order.status === 'closed' && order.closePrice && (
-                        <span className="to-close-arrow"> → {fmtPrice(order.closePrice)}</span>
-                      )}
                     </td>
 
-                    {/* Margin */}
-                    <td className="table-cell to-num">{fmtMoney(order.margin)}</td>
+                    {/* Close Price */}
+                    <td className="table-cell to-num">
+                      {order.status === 'closed' && order.closePrice != null ? (
+                        <span className={
+                          order.pnl > 0 ? 'to-close-profit' :
+                          order.pnl < 0 ? 'to-close-loss' : ''
+                        }>
+                          {fmtPrice(order.closePrice)}
+                          <span className="to-close-badge">
+                            {order.pnl > 0 ? ' ▲' : order.pnl < 0 ? ' ▼' : ''}
+                          </span>
+                        </span>
+                      ) : '—'}
+                    </td>
+
+                    {/* Est. Margin */}
+                    <td className="table-cell to-num">{fmtMoney(order.estimatedMargin ?? order.margin)}</td>
 
                     {/* Status */}
                     <td className="table-cell">
@@ -439,25 +469,31 @@ function FuturesListTable() {
                 </strong>
               </div>
               <div className="cp-modal-row">
-                <span>Margin</span>
-                <strong>{fmtMoney(confirmRow.order.margin)}</strong>
+                <span>Est. Margin</span>
+                <strong>{fmtMoney(confirmRow.order.estimatedMargin ?? confirmRow.order.margin)}</strong>
               </div>
               <div className="cp-modal-row">
                 <span>Percentage</span>
                 <strong>{confirmRow.pct}%</strong>
               </div>
               <div className="cp-modal-row">
+                <span>Close Price</span>
+                <strong className={confirmRow.control === 'profit' ? 'preview-profit' : 'preview-loss'}>
+                  {fmtPrice(calcPredictedClosePrice(confirmRow.order, confirmRow.pct, confirmRow.control))}
+                </strong>
+              </div>
+              <div className="cp-modal-row">
                 <span>Net P&amp;L</span>
                 <strong className={confirmRow.control === 'profit' ? 'preview-profit' : 'preview-loss'}>
                   {confirmRow.control === 'profit' ? '+' : '-'}
-                  {fmtMoney(calcNetPnl(confirmRow.order.margin, confirmRow.pct, confirmRow.control))}
+                  {fmtMoney(calcNetPnl(confirmRow.order.estimatedMargin ?? confirmRow.order.margin, confirmRow.pct, confirmRow.control))}
                 </strong>
               </div>
               <div className="cp-modal-row">
                 <span>Wallet change</span>
                 <strong className={confirmRow.control === 'profit' ? 'preview-profit' : 'preview-loss'}>
                   {confirmRow.control === 'profit' ? '+' : '-'}
-                  {fmtMoney(Math.abs(calcNetPnl(confirmRow.order.margin, confirmRow.pct, confirmRow.control)))} USDT
+                  {fmtMoney(Math.abs(calcNetPnl(confirmRow.order.estimatedMargin ?? confirmRow.order.margin, confirmRow.pct, confirmRow.control)))} USDT
                 </strong>
               </div>
             </div>
@@ -582,8 +618,11 @@ const INLINE_CSS = `
   .to-row-cancelled { opacity: 0.55; }
 
   /* Price arrows */
-  .to-target      { color: #f0c040; font-weight: 600; }
-  .to-close-arrow { color: #666; font-size: 12px; }
+  .to-target       { color: #f0c040; font-weight: 600; }
+  .to-close-arrow  { color: #666; font-size: 12px; }
+  .to-close-profit { color: #36c836; font-weight: 700; font-size: 13px; }
+  .to-close-loss   { color: #e03030; font-weight: 700; font-size: 13px; }
+  .to-close-badge  { font-size: 10px; }
 
   /* P&L */
   .to-pnl-pos { color: #36c836; font-weight: 700; }

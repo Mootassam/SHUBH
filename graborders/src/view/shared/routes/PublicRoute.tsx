@@ -8,7 +8,7 @@ function PublicRoute({ component: Component,currentTenant, currentUser, ...reset
       render={(props) => {
         const permissionChecker = new permissionCheker(currentTenant,currentUser,);
         if (permissionChecker.isAuthenticated) {
-          return <Redirect to="/" />;
+          return <Redirect to="/market" />;
         }
         return <Component {...props} />;
       }}

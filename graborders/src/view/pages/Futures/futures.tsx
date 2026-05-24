@@ -139,6 +139,10 @@ function Futures() {
   // Pending order trigger price
   const [triggerPrice, setTriggerPrice] = useState<number>(0);
 
+  // Success toast
+  const [successToast, setSuccessToast] = useState<{ type: 'market' | 'pending'; direction: 'buy' | 'sell'; symbol: string } | null>(null);
+  const successTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // ----------------------------------------------------------------------
   // WebSocket and price logic (unchanged)
   // ----------------------------------------------------------------------
@@ -334,7 +338,11 @@ function Futures() {
   const handleOpenConfirm = (direction: 'buy' | 'sell', orderType: 'market' | 'pending' = 'market') => {
     setConfirmDirection(direction);
     setConfirmOrderType(orderType);
-    setConfirmError(null);
+    setConfirmError(
+      insufficientBalance
+        ? `Insufficient balance. Required: $${estimatedMargin}, Available: $${USDBalance.toFixed(2)}`
+        : null
+    );
     setShowConfirmModal(true);
   };
 
@@ -360,7 +368,15 @@ function Futures() {
         payload.referencePrice = currentPrice;
       }
       await authAxios.post(`/tenant/${currentTenant.id}/trade-orders`, payload);
+      // Immediately reflect the deducted margin in the UI balance
+      setUSDBalance(prev => Math.max(0, prev - marginNeeded));
+      // Re-fetch assets from server to get the authoritative balance
+      dispatch(assetsListAction.doFetch());
       setShowConfirmModal(false);
+      // Show success toast
+      if (successTimerRef.current) clearTimeout(successTimerRef.current);
+      setSuccessToast({ type: confirmOrderType, direction: confirmDirection, symbol: selectedCoin });
+      successTimerRef.current = setTimeout(() => setSuccessToast(null), 4000);
     } catch (err: any) {
       const msg = err?.response?.data?.errors?.[0]?.message || 'Failed to place order. Please try again.';
       setConfirmError(msg);
@@ -495,6 +511,9 @@ function Futures() {
     return margin.toFixed(5);
   }, [lots, currentPrice, multiplier]);
 
+  const marginNeeded = parseFloat(estimatedMargin) || 0;
+  const insufficientBalance = USDBalance < marginNeeded && marginNeeded > 0;
+
   return (
     <div className="container">
       {/* Header – transparent, inheriting the gradient from the container */}
@@ -598,7 +617,18 @@ function Futures() {
                   >
                     −
                   </button>
-                  <span className="step-value">{fmtSLTP(stopLossValue)}</span>
+                  <input
+                    type="number"
+                    className="step-value"
+                    value={stopLossValue}
+                    onChange={(e) => {
+                      const v = parseFloat(e.target.value);
+                      if (!isNaN(v) && v >= 0) setStopLossValue(v);
+                    }}
+                    disabled={!useStopLoss}
+                    step="any"
+                    min="0"
+                  />
                   <button
                     className="step-btn"
                     onClick={() => stepStopLoss(priceStep)}
@@ -628,7 +658,18 @@ function Futures() {
                   >
                     −
                   </button>
-                  <span className="step-value">{fmtSLTP(takeProfitValue)}</span>
+                  <input
+                    type="number"
+                    className="step-value"
+                    value={takeProfitValue}
+                    onChange={(e) => {
+                      const v = parseFloat(e.target.value);
+                      if (!isNaN(v) && v >= 0) setTakeProfitValue(v);
+                    }}
+                    disabled={!useTakeProfit}
+                    step="any"
+                    min="0"
+                  />
                   <button
                     className="step-btn"
                     onClick={() => stepTakeProfit(priceStep)}
@@ -644,7 +685,17 @@ function Futures() {
                 <span className="form-label">Lots (Step:0.01)</span>
                 <div className="stepper">
                   <button className="step-btn" onClick={() => stepLots(-0.01)}>−</button>
-                  <span className="step-value">{lots.toFixed(2)}</span>
+                  <input
+                    type="number"
+                    className="step-value"
+                    value={lots}
+                    onChange={(e) => {
+                      const v = parseFloat(e.target.value);
+                      setLots(isNaN(v) || v < 0.01 ? 0.01 : Math.round(v * 100) / 100);
+                    }}
+                    step="0.01"
+                    min="0.01"
+                  />
                   <button className="step-btn" onClick={() => stepLots(0.01)}>+</button>
                 </div>
               </div>
@@ -665,27 +716,36 @@ function Futures() {
               </div>
               <div className="info-row">
                 <span className="info-label">Estimated Margin</span>
-                <span className="info-value">{estimatedMargin}</span>
+                <span className="info-value" style={{ color: insufficientBalance ? '#ff4d4d' : undefined }}>
+                  ${estimatedMargin}
+                </span>
               </div>
               <div className="info-row">
                 <span className="info-label">Balance</span>
-                <span className="info-value">{USDBalance.toFixed(2)}</span>
+                <span className="info-value">${USDBalance.toFixed(2)}</span>
               </div>
             </div>
+
+            {/* Insufficient balance warning */}
+            {insufficientBalance && (
+              <div className="balance-insufficient-msg">
+                ⚠ Insufficient balance. Need ${estimatedMargin}, you have ${USDBalance.toFixed(2)}.
+              </div>
+            )}
 
             {/* Buy / Sell buttons */}
             <div className="future-action-buttons">
               <button
                 className="action-button buy-button"
                 onClick={() => handleOpenConfirm('buy')}
-                disabled={currentPrice === null}
+                disabled={currentPrice === null || insufficientBalance}
               >
                 {i18n('pages.futures.actions.buyUp')}
               </button>
               <button
                 className="action-button sell-button"
                 onClick={() => handleOpenConfirm('sell')}
-                disabled={currentPrice === null}
+                disabled={currentPrice === null || insufficientBalance}
               >
                 {i18n('pages.futures.actions.buyDown')}
               </button>
@@ -714,7 +774,17 @@ function Futures() {
                 <span className="form-label">Trigger Price</span>
                 <div className="stepper">
                   <button className="step-btn" onClick={() => stepTriggerPrice(-priceStep)}>−</button>
-                  <span className="step-value">{fmtSLTP(triggerPrice)}</span>
+                  <input
+                    type="number"
+                    className="step-value"
+                    value={triggerPrice}
+                    onChange={(e) => {
+                      const v = parseFloat(e.target.value);
+                      if (!isNaN(v) && v >= 0) setTriggerPrice(v);
+                    }}
+                    step="any"
+                    min="0"
+                  />
                   <button className="step-btn" onClick={() => stepTriggerPrice(priceStep)}>+</button>
                 </div>
               </div>
@@ -732,7 +802,15 @@ function Futures() {
                 <span className="form-label">Set Loss</span>
                 <div className="stepper">
                   <button className="step-btn" onClick={() => stepStopLoss(-priceStep)} disabled={!useStopLoss}>−</button>
-                  <span className="step-value">{fmtSLTP(stopLossValue)}</span>
+                  <input
+                    type="number"
+                    className="step-value"
+                    value={stopLossValue}
+                    onChange={(e) => { const v = parseFloat(e.target.value); if (!isNaN(v) && v >= 0) setStopLossValue(v); }}
+                    disabled={!useStopLoss}
+                    step="any"
+                    min="0"
+                  />
                   <button className="step-btn" onClick={() => stepStopLoss(priceStep)} disabled={!useStopLoss}>+</button>
                 </div>
               </div>
@@ -750,7 +828,15 @@ function Futures() {
                 <span className="form-label">Take Profit</span>
                 <div className="stepper">
                   <button className="step-btn" onClick={() => stepTakeProfit(-priceStep)} disabled={!useTakeProfit}>−</button>
-                  <span className="step-value">{fmtSLTP(takeProfitValue)}</span>
+                  <input
+                    type="number"
+                    className="step-value"
+                    value={takeProfitValue}
+                    onChange={(e) => { const v = parseFloat(e.target.value); if (!isNaN(v) && v >= 0) setTakeProfitValue(v); }}
+                    disabled={!useTakeProfit}
+                    step="any"
+                    min="0"
+                  />
                   <button className="step-btn" onClick={() => stepTakeProfit(priceStep)} disabled={!useTakeProfit}>+</button>
                 </div>
               </div>
@@ -760,7 +846,17 @@ function Futures() {
                 <span className="form-label">Lots (Step:0.01)</span>
                 <div className="stepper">
                   <button className="step-btn" onClick={() => stepLots(-0.01)}>−</button>
-                  <span className="step-value">{lots.toFixed(2)}</span>
+                  <input
+                    type="number"
+                    className="step-value"
+                    value={lots}
+                    onChange={(e) => {
+                      const v = parseFloat(e.target.value);
+                      setLots(isNaN(v) || v < 0.01 ? 0.01 : Math.round(v * 100) / 100);
+                    }}
+                    step="0.01"
+                    min="0.01"
+                  />
                   <button className="step-btn" onClick={() => stepLots(0.01)}>+</button>
                 </div>
               </div>
@@ -779,26 +875,35 @@ function Futures() {
               </div>
               <div className="info-row">
                 <span className="info-label">Estimated Margin</span>
-                <span className="info-value">{estimatedMargin}</span>
+                <span className="info-value" style={{ color: insufficientBalance ? '#ff4d4d' : undefined }}>
+                  ${estimatedMargin}
+                </span>
               </div>
               <div className="info-row">
                 <span className="info-label">Balance</span>
-                <span className="info-value">{USDBalance.toFixed(2)}</span>
+                <span className="info-value">${USDBalance.toFixed(2)}</span>
               </div>
             </div>
+
+            {/* Insufficient balance warning */}
+            {insufficientBalance && (
+              <div className="balance-insufficient-msg">
+                ⚠ Insufficient balance. Need ${estimatedMargin}, you have ${USDBalance.toFixed(2)}.
+              </div>
+            )}
 
             <div className="future-action-buttons">
               <button
                 className="action-button buy-button"
                 onClick={() => handleOpenConfirm('buy', 'pending')}
-                disabled={currentPrice === null || triggerPrice <= 0}
+                disabled={currentPrice === null || triggerPrice <= 0 || insufficientBalance}
               >
                 Buy Pending
               </button>
               <button
                 className="action-button sell-button"
                 onClick={() => handleOpenConfirm('sell', 'pending')}
-                disabled={currentPrice === null || triggerPrice <= 0}
+                disabled={currentPrice === null || triggerPrice <= 0 || insufficientBalance}
               >
                 Sell Pending
               </button>
@@ -839,6 +944,7 @@ function Futures() {
                 ? <span className="confirm-price">@ {currentPrice !== null ? currentPrice.toFixed(5) : '—'} (market)</span>
                 : <span className="confirm-price">Trigger @ {fmtSLTP(triggerPrice)} · Now {currentPrice !== null ? currentPrice.toFixed(5) : '—'}</span>
               }
+              <span className="confirm-margin">Estimated Margin: <strong>${estimatedMargin}</strong></span>
             </div>
             {confirmError && <div className="confirm-error">{confirmError}</div>}
             <div className="confirm-buttons">
@@ -882,6 +988,25 @@ function Futures() {
         availableCoins={availableCoins.map(c => ({ symbol: c.symbol, name: c.name }))}
         title={i18n('pages.marketDetail.coinSelector.title')}
       />
+
+      {/* ── Success Toast ── */}
+      {successToast && (
+        <div className="success-toast" onClick={() => setSuccessToast(null)}>
+          <div className="success-toast-icon">✓</div>
+          <div className="success-toast-body">
+            <div className="success-toast-title">Order Placed Successfully!</div>
+            <div className="success-toast-sub">
+              {successToast.direction === 'buy' ? 'Buy' : 'Sell'}{' '}
+              {successToast.type === 'pending' ? 'Pending' : 'Market'} · {successToast.symbol}
+            </div>
+            <div className="success-toast-note">
+              {successToast.type === 'market'
+                ? 'Your position is now active. Track it in Orders.'
+                : 'Your pending order is waiting for the trigger price.'}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* CSS – updated with new styles */}
       <style>{`
@@ -1115,11 +1240,34 @@ function Futures() {
         }
 
         .step-value {
-          min-width: 50px;
+          width: 80px;
+          min-width: 60px;
           text-align: center;
           font-weight: 600;
           color: #1a1a1a;
           font-size: 14px;
+          border: 1.5px solid #e0e3e8;
+          border-radius: 7px;
+          padding: 5px 6px;
+          background: #f8f9fb;
+          outline: none;
+          transition: border-color 0.2s, background 0.2s;
+          -moz-appearance: textfield;
+        }
+        .step-value::-webkit-inner-spin-button,
+        .step-value::-webkit-outer-spin-button {
+          -webkit-appearance: none;
+          margin: 0;
+        }
+        .step-value:focus {
+          border-color: #106cf5;
+          background: #fff;
+          box-shadow: 0 0 0 2px rgba(16, 108, 245, 0.12);
+        }
+        .step-value:disabled {
+          opacity: 0.4;
+          cursor: not-allowed;
+          background: #f0f2f5;
         }
 
         .form-divider {
@@ -1397,9 +1545,22 @@ function Futures() {
         .confirm-dir.buy  { color: #36c836; }
         .confirm-dir.sell { color: #ff4d4d; }
 
-        .confirm-pair  { font-weight: 600; color: #1a1a1a; }
-        .confirm-meta  { color: #666; }
-        .confirm-price { color: #106cf5; font-weight: 600; }
+        .confirm-pair   { font-weight: 600; color: #1a1a1a; }
+        .confirm-meta   { color: #666; }
+        .confirm-price  { color: #106cf5; font-weight: 600; }
+        .confirm-margin { color: #555; font-size: 13px; }
+        .confirm-margin strong { color: #1a1a1a; }
+
+        .balance-insufficient-msg {
+          background: #fff3f3;
+          border: 1px solid #ffb3b3;
+          border-radius: 8px;
+          padding: 10px 14px;
+          font-size: 13px;
+          color: #cc0000;
+          font-weight: 500;
+          text-align: center;
+        }
 
         .confirm-error {
           color: #ff4d4d;
@@ -1448,6 +1609,72 @@ function Futures() {
 
         @keyframes fadeIn  { from { opacity: 0; }               to { opacity: 1; } }
         @keyframes slideUp { from { transform: translate(-50%, 100%); } to { transform: translate(-50%, 0); } }
+
+        /* ── Success Toast ── */
+        .success-toast {
+          position: fixed;
+          top: 24px;
+          left: 50%;
+          transform: translateX(-50%);
+          width: calc(100% - 32px);
+          max-width: 368px;
+          background: #fff;
+          border-radius: 16px;
+          padding: 16px 18px;
+          display: flex;
+          align-items: flex-start;
+          gap: 14px;
+          box-shadow: 0 8px 32px rgba(0,0,0,0.18), 0 2px 8px rgba(16,108,245,0.10);
+          border-left: 5px solid #22c55e;
+          z-index: 9999;
+          cursor: pointer;
+          animation: toastIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        .success-toast-icon {
+          width: 36px;
+          height: 36px;
+          border-radius: 50%;
+          background: linear-gradient(135deg, #22c55e, #16a34a);
+          color: white;
+          font-size: 20px;
+          font-weight: 700;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+        }
+
+        .success-toast-body {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          gap: 3px;
+        }
+
+        .success-toast-title {
+          font-size: 15px;
+          font-weight: 700;
+          color: #1a1a1a;
+        }
+
+        .success-toast-sub {
+          font-size: 13px;
+          font-weight: 600;
+          color: #106cf5;
+        }
+
+        .success-toast-note {
+          font-size: 12px;
+          color: #666;
+          margin-top: 2px;
+          line-height: 1.4;
+        }
+
+        @keyframes toastIn {
+          from { opacity: 0; transform: translateX(-50%) translateY(-20px) scale(0.95); }
+          to   { opacity: 1; transform: translateX(-50%) translateY(0)      scale(1);    }
+        }
 
         /* Responsive */
         @media (max-width: 380px) {

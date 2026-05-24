@@ -20,10 +20,10 @@ function TabBottomNavigator() {
       path: "/market",
       name: i18n("components.bottomNav.market"),
     },
-    {
-      icon: "fas fa-home",
-      path: "/",
-      name: i18n("components.bottomNav.home"),
+     {
+      icon: "fas fa-list",
+      path: "/ordersPage",
+      name: i18n("components.bottomNav.orders"),
     },
 
     {
@@ -31,10 +31,12 @@ function TabBottomNavigator() {
       path: "/futures",
       name: i18n("components.bottomNav.trade"),
     },
-    {
-      icon: "fas fa-list",
-      path: "/ordersPage",
-      name: i18n("components.bottomNav.orders"),
+  
+
+     {
+      icon: "fas fa-newspaper",
+      path: "/",
+      name: i18n("components.bottomNav.news"),
     },
     {
       icon: "fas fa-user",

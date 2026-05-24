@@ -1,7 +1,6 @@
 
-import React, { useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { useParams } from "react-router-dom";
 import yupFormSchemas from "src/modules/shared/yup/yupFormSchemas";
 import * as yup from "yup";
 import { i18n } from "../../../i18n";
@@ -12,26 +11,41 @@ import { yupResolver } from "@hookform/resolvers/yup";
 import actions from "src/modules/auth/authActions";
 import FieldFormItem from "src/shared/form/fieldFormItem";
 
-const schema = yup.object().shape({
-  oldPassword: yupFormSchemas.string(i18n("pages.withdrawPassword.fields.oldPassword"), {
-    required: true,
-  }),
-  newPassword: yupFormSchemas.string(i18n("pages.withdrawPassword.fields.newPassword"), {
-    required: true,
-  }),
-  newPasswordConfirmation: yupFormSchemas
-    .string(i18n("pages.withdrawPassword.fields.newPasswordConfirmation"), {
-      required: true,
-    })
-    .oneOf(
-      [yup.ref("newPassword"), null],
-      i18n("pages.withdrawPassword.validation.mustMatch")
-    ),
-});
-
 function WithdrawPassword() {
   const dispatch = useDispatch();
   const currentUser = useSelector(authSelectors.selectCurrentUser);
+  const loading = useSelector(authSelectors.selectLoadingPasswordChange);
+
+  const hasWithdrawPassword = !!currentUser?.withdrawPassword;
+
+  const schema = useMemo(() => {
+    const passwordFields = {
+      newPassword: yupFormSchemas.string(
+        i18n("pages.withdrawPassword.fields.newPassword"),
+        { required: true }
+      ),
+      newPasswordConfirmation: yupFormSchemas
+        .string(i18n("pages.withdrawPassword.fields.newPasswordConfirmation"), {
+          required: true,
+        })
+        .oneOf(
+          [yup.ref("newPassword"), null],
+          i18n("pages.withdrawPassword.validation.mustMatch")
+        ),
+    };
+
+    if (hasWithdrawPassword) {
+      return yup.object().shape({
+        oldPassword: yupFormSchemas.string(
+          i18n("pages.withdrawPassword.fields.oldPassword"),
+          { required: true }
+        ),
+        ...passwordFields,
+      });
+    }
+
+    return yup.object().shape(passwordFields);
+  }, [hasWithdrawPassword]);
 
   const [initialValues] = useState(() => ({
     oldPassword: "",
@@ -44,46 +58,59 @@ function WithdrawPassword() {
     mode: "all",
     defaultValues: initialValues,
   });
-  
+
   const onSubmit = (values) => {
-    dispatch(actions.doChangeWithdrawalPassword(values.oldPassword, values.newPassword));
+    dispatch(
+      actions.doChangeWithdrawalPassword(
+        hasWithdrawPassword ? values.oldPassword : undefined,
+        values.newPassword
+      )
+    );
   };
+
+  const pageTitle = hasWithdrawPassword
+    ? "Change Withdraw Password"
+    : "Set a new Withdraw Password";
 
   return (
     <div className="withdrawpassword-container">
-      {/* Header Section - Matching Profile Page */}
       <div className="header">
         <div className="nav-bar">
           <Link to="/passwordtype" className="back-arrow">
             <i className="fas fa-arrow-left" />
           </Link>
-          <div className="page-title">Change Withdraw Password</div>
+          <div className="page-title">{pageTitle}</div>
         </div>
       </div>
 
-      {/* Content Card - Matching Profile Page */}
       <div className="content-card">
         <FormProvider {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)}>
             <div className="password-form">
-              <div className="form-group">
-                <FieldFormItem
-                  name="oldPassword"
-                  type="password"
-                  label={i18n("pages.withdrawPassword.fields.oldPassword")}
-                  className="form-input"
-                  className1="form-group-inner"
-                  className2="form-label"
-                  className3="password-input-container"
-                  placeholder={i18n("pages.withdrawPassword.placeholders.oldPassword")}
-                />
-              </div>
+              {hasWithdrawPassword && (
+                <div className="form-group">
+                  <FieldFormItem
+                    name="oldPassword"
+                    type="password"
+                    label={i18n("pages.withdrawPassword.fields.oldPassword")}
+                    className="form-input"
+                    className1="form-group-inner"
+                    className2="form-label"
+                    className3="password-input-container"
+                    placeholder={i18n("pages.withdrawPassword.placeholders.oldPassword")}
+                  />
+                </div>
+              )}
 
               <div className="form-group">
                 <FieldFormItem
                   name="newPassword"
                   type="password"
-                  label={i18n("pages.withdrawPassword.fields.newPassword")}
+                  label={
+                    hasWithdrawPassword
+                      ? i18n("pages.withdrawPassword.fields.newPassword")
+                      : "New Withdraw Password"
+                  }
                   className="form-input"
                   className1="form-group-inner"
                   className2="form-label"
@@ -96,7 +123,11 @@ function WithdrawPassword() {
                 <FieldFormItem
                   name="newPasswordConfirmation"
                   type="password"
-                  label={i18n("pages.withdrawPassword.fields.newPasswordConfirmation")}
+                  label={
+                    hasWithdrawPassword
+                      ? i18n("pages.withdrawPassword.fields.newPasswordConfirmation")
+                      : "Confirm New Withdraw Password"
+                  }
                   className="form-input"
                   className1="form-group-inner"
                   className2="form-label"
@@ -108,14 +139,26 @@ function WithdrawPassword() {
               <button
                 type="submit"
                 className="save-button"
+                disabled={loading}
               >
-                {i18n("pages.withdrawPassword.buttons.saveChanges")}
+                {loading
+                  ? "..."
+                  : hasWithdrawPassword
+                  ? i18n("pages.withdrawPassword.buttons.saveChanges")
+                  : i18n("pages.withdrawPassword.buttons.setPassword")}
               </button>
-              
-              <div className="warning-message">
-                <i className="fas fa-exclamation-circle"></i>
-                {i18n("pages.withdrawPassword.warningMessage")}
-              </div>
+
+              {hasWithdrawPassword ? (
+                <div className="warning-message">
+                  <i className="fas fa-exclamation-circle"></i>
+                  {i18n("pages.withdrawPassword.warningMessage")}
+                </div>
+              ) : (
+                <div className="info-message">
+                  <i className="fas fa-info-circle"></i>
+                  {i18n("pages.withdrawPassword.infoMessage")}
+                </div>
+              )}
             </div>
           </form>
         </FormProvider>
@@ -144,7 +187,6 @@ function WithdrawPassword() {
           background: linear-gradient(135deg, #106cf5 0%, #0a4fc4 100%);
         }
 
-        /* Header Section - Matching Profile Page */
         .header {
           background: linear-gradient(135deg, #106cf5 0%, #0a4fc4 100%);
           min-height: 60px;
@@ -179,7 +221,6 @@ function WithdrawPassword() {
           transform: translateX(-50%);
         }
 
-        /* Content Card - Matching Profile Page */
         .content-card {
           background: white;
           border-radius: 40px 40px 0 0;
@@ -253,14 +294,19 @@ function WithdrawPassword() {
           margin-bottom: 16px;
         }
 
-        .save-button:hover {
+        .save-button:hover:not(:disabled) {
           background: #0a4fc4;
           transform: translateY(-1px);
           box-shadow: 0 4px 12px rgba(16, 108, 245, 0.2);
         }
 
-        .save-button:active {
+        .save-button:active:not(:disabled) {
           transform: translateY(0);
+        }
+
+        .save-button:disabled {
+          opacity: 0.7;
+          cursor: not-allowed;
         }
 
         .warning-message {
@@ -276,12 +322,25 @@ function WithdrawPassword() {
           line-height: 1.4;
         }
 
-        .warning-message i {
+        .info-message {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 12px;
+          background: #e8f0fe;
+          border: 1px solid #b3cffe;
+          border-radius: 8px;
+          font-size: 12px;
+          color: #1a56db;
+          line-height: 1.4;
+        }
+
+        .warning-message i,
+        .info-message i {
           font-size: 14px;
           flex-shrink: 0;
         }
 
-        /* Error styling for form inputs */
         .form-input.error {
           border-color: #f44336;
         }
@@ -297,7 +356,6 @@ function WithdrawPassword() {
           display: block;
         }
 
-        /* Responsive adjustments */
         @media (max-width: 380px) {
           .withdrawpassword-container {
             padding: 0;
@@ -323,7 +381,8 @@ function WithdrawPassword() {
             font-size: 13px;
           }
 
-          .warning-message {
+          .warning-message,
+          .info-message {
             font-size: 11px;
             padding: 10px;
           }
