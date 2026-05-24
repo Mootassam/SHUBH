@@ -11,11 +11,6 @@ const privateRoutes = [
     exact: true,
   },
 
-  {
-    path: "/history",
-    loader: () => import("src/view/pages/History/History"),
-    permissionRequired: permissions.categoryRead,
-  },
 
 
   {
@@ -208,6 +203,11 @@ const screenRoutes = [
     permissionRequired: permissions.categoryRead,
     exact: true,
     requiresKyc: true,
+  },
+  {
+    path: "/history",
+    loader: () => import("src/view/pages/History/History"),
+    permissionRequired: permissions.categoryRead,
   },
 
 

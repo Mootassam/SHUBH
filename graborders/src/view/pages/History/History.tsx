@@ -192,7 +192,7 @@ function History() {
       {/* Header Section - Matching About Page */}
       <div className="header">
         <div className="nav-bar">
-          <Link  className="back-arrow">
+          <Link to='/profile' className="back-arrow">
             <i className="fas fa-arrow-left" />
           </Link>
           <div className="page-title">{i18n("pages.history.title")}</div>

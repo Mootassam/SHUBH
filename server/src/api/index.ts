@@ -114,6 +114,7 @@ require("./depositNetwork").default(routes, io);
 require("./product").default(routes);
 require("./company").default(routes);
 require("./rules").default(routes);
+require("./tradeOrder").default(routes);
 
 // Loads the Tenant if the :tenantId param is passed
 routes.param("tenantId", tenantMiddleware);

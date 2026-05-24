@@ -25,7 +25,7 @@ const MENU_ITEMS = [
   },
   {
     icon: "fas fa-file-alt",
-    path: "/transferAll",
+    path: "/history",
     name: i18n("pages.profile.menu.withdrawalAddress"),
     requiresKyc: true,
   },

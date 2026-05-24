@@ -16,15 +16,16 @@ function TabBottomNavigator() {
 
   const tabs: TabItem[] = [
     {
-      icon: "fas fa-home",
-      path: "/",
-      name: i18n("components.bottomNav.home"),
-    },
-    {
       icon: "fas fa-chart-line",
       path: "/market",
       name: i18n("components.bottomNav.market"),
     },
+    {
+      icon: "fas fa-home",
+      path: "/",
+      name: i18n("components.bottomNav.home"),
+    },
+
     {
       icon: "fas fa-chart-bar",   // will be replaced by custom image for futures
       path: "/futures",
@@ -51,9 +52,8 @@ function TabBottomNavigator() {
           <Link
             key={index}
             to={item.path}
-            className={`nav-item ${isActive(item.path) ? "active" : ""} ${
-              isFutures ? "futures-tab" : ""
-            }`}
+            className={`nav-item ${isActive(item.path) ? "active" : ""} ${isFutures ? "futures-tab" : ""
+              }`}
           >
             {isFutures ? (
               <img

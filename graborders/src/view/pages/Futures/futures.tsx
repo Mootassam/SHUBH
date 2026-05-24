@@ -132,8 +132,12 @@ function Futures() {
   // Confirmation modal state
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [confirmDirection, setConfirmDirection] = useState<'buy' | 'sell'>('buy');
+  const [confirmOrderType, setConfirmOrderType] = useState<'market' | 'pending'>('market');
   const [confirmLoading, setConfirmLoading] = useState(false);
   const [confirmError, setConfirmError] = useState<string | null>(null);
+
+  // Pending order trigger price
+  const [triggerPrice, setTriggerPrice] = useState<number>(0);
 
   // ----------------------------------------------------------------------
   // WebSocket and price logic (unchanged)
@@ -327,30 +331,39 @@ function Futures() {
   // Confirm order handler
   const currentTenant = useSelector(authSelectors.selectCurrentTenant);
 
-  const handleOpenConfirm = (direction: 'buy' | 'sell') => {
+  const handleOpenConfirm = (direction: 'buy' | 'sell', orderType: 'market' | 'pending' = 'market') => {
     setConfirmDirection(direction);
+    setConfirmOrderType(orderType);
     setConfirmError(null);
     setShowConfirmModal(true);
   };
 
   const handleConfirmOrder = async () => {
-    if (!currentTenant?.id) return;
+    if (!currentTenant?.id || currentPrice === null) return;
     setConfirmLoading(true);
     setConfirmError(null);
     try {
-      await authAxios.post(`/tenant/${currentTenant.id}/futures-orders`, {
-        coin: selectedCoin,
-        price: currentPrice,
+      const payload: any = {
+        orderType: confirmOrderType,
+        symbol: selectedCoin,
+        symbolName: displayName,
         direction: confirmDirection,
         lots,
         multiplier,
-        amount: parseFloat(estimatedMargin),
-        stopLoss: useStopLoss ? stopLossValue : null,
         takeProfit: useTakeProfit ? takeProfitValue : null,
-      });
+        stopLoss: useStopLoss ? stopLossValue : null,
+      };
+      if (confirmOrderType === 'market') {
+        payload.entryPrice = currentPrice;
+      } else {
+        payload.targetPrice    = triggerPrice;
+        payload.referencePrice = currentPrice;
+      }
+      await authAxios.post(`/tenant/${currentTenant.id}/trade-orders`, payload);
       setShowConfirmModal(false);
-    } catch {
-      setConfirmError('Failed to place order. Please try again.');
+    } catch (err: any) {
+      const msg = err?.response?.data?.errors?.[0]?.message || 'Failed to place order. Please try again.';
+      setConfirmError(msg);
     } finally {
       setConfirmLoading(false);
     }
@@ -448,6 +461,20 @@ function Futures() {
   const stepLots = (delta: number) => {
     setLots(prev => Math.max(0.01, +(prev + delta).toFixed(2)));
   };
+
+  const stepTriggerPrice = (delta: number) => {
+    setTriggerPrice(prev => {
+      const next = prev + delta;
+      return next <= 0 ? 0 : +next.toFixed(10);
+    });
+  };
+
+  // Seed trigger price from live price when switching to pending tab
+  useEffect(() => {
+    if (activeInfoTab === 'pendingOrders' && currentPrice !== null && triggerPrice === 0) {
+      setTriggerPrice(currentPrice);
+    }
+  }, [activeInfoTab, currentPrice]);
 
   // "1 Lots = 100 USDJPY" – 100 units of the selected pair per lot
   const eachLotValue = `1 Lots = 100 ${selectedCoin}`;
@@ -665,51 +692,118 @@ function Futures() {
             </div>
           </>
         ) : (
-          /* Pending Orders list – simplified version */
-          <div className="pending-orders-container">
-            {pendingLoading ? (
-              <div className="loading-placeholder" style={{ height: '200px' }} />
-            ) : pendingList && pendingList.length > 0 ? (
-              pendingList.map((order: any) => (
-                <div
-                  key={order.id}
-                  className="order-card"
-                  onClick={() => handleOpenOrderModal(order)}
+          /* ── Pending Orders Form ── */
+          <>
+            <div className="trading-form">
+              {/* Multiplier row */}
+              <div className="form-row">
+                <span className="form-label">Multiplier</span>
+                <select
+                  className="multiplier-select"
+                  value={multiplier}
+                  onChange={(e) => setMultiplier(+e.target.value)}
                 >
-                  <div className="order-header">
-                    <span className="order-pair">{order.symbol || order.pair}</span>
-                    <span className={`order-direction ${order.futuresStatus === "long" || order.direction === "BUY UP" ? "buy" : "sell"}`}>
-                      {order.futuresStatus === "long"
-                        ? i18n('pages.futures.actions.buyUp')
-                        : order.futuresStatus === "short"
-                          ? i18n('pages.futures.actions.buyDown')
-                          : order.direction}
-                    </span>
-                  </div>
-                  <div className="order-status open">● Open</div>
-                  <div className="order-details">
-                    <div className="order-row">
-                      <span className="order-label">Amount</span>
-                      <span className="order-value">{order.futuresAmount || order.investment} USD</span>
-                    </div>
-                    <div className="order-row">
-                      <span className="order-label">Open Price</span>
-                      <span className="order-value">{order.openPositionPrice || order.openPrice}</span>
-                    </div>
-                    <div className="order-row">
-                      <span className="order-label">Leverage</span>
-                      <span className="order-value">{order.leverage}X</span>
-                    </div>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div className="no-orders">
-                <i className="fas fa-inbox"></i>
-                No pending orders
+                  {[100, 200, 300, 400, 500].map(v => (
+                    <option key={v} value={v}>{v}×</option>
+                  ))}
+                </select>
               </div>
-            )}
-          </div>
+
+              {/* Trigger Price row */}
+              <div className="form-row">
+                <span className="form-label">Trigger Price</span>
+                <div className="stepper">
+                  <button className="step-btn" onClick={() => stepTriggerPrice(-priceStep)}>−</button>
+                  <span className="step-value">{fmtSLTP(triggerPrice)}</span>
+                  <button className="step-btn" onClick={() => stepTriggerPrice(priceStep)}>+</button>
+                </div>
+              </div>
+
+              {/* Stop Loss row */}
+              <div className="form-row">
+                <div className="checkbox-container">
+                  <input
+                    type="checkbox"
+                    checked={useStopLoss}
+                    onChange={(e) => handleToggleStopLoss(e.target.checked)}
+                    className="form-checkbox"
+                  />
+                </div>
+                <span className="form-label">Set Loss</span>
+                <div className="stepper">
+                  <button className="step-btn" onClick={() => stepStopLoss(-priceStep)} disabled={!useStopLoss}>−</button>
+                  <span className="step-value">{fmtSLTP(stopLossValue)}</span>
+                  <button className="step-btn" onClick={() => stepStopLoss(priceStep)} disabled={!useStopLoss}>+</button>
+                </div>
+              </div>
+
+              {/* Take Profit row */}
+              <div className="form-row">
+                <div className="checkbox-container">
+                  <input
+                    type="checkbox"
+                    checked={useTakeProfit}
+                    onChange={(e) => handleToggleTakeProfit(e.target.checked)}
+                    className="form-checkbox"
+                  />
+                </div>
+                <span className="form-label">Take Profit</span>
+                <div className="stepper">
+                  <button className="step-btn" onClick={() => stepTakeProfit(-priceStep)} disabled={!useTakeProfit}>−</button>
+                  <span className="step-value">{fmtSLTP(takeProfitValue)}</span>
+                  <button className="step-btn" onClick={() => stepTakeProfit(priceStep)} disabled={!useTakeProfit}>+</button>
+                </div>
+              </div>
+
+              {/* Lots row */}
+              <div className="form-row">
+                <span className="form-label">Lots (Step:0.01)</span>
+                <div className="stepper">
+                  <button className="step-btn" onClick={() => stepLots(-0.01)}>−</button>
+                  <span className="step-value">{lots.toFixed(2)}</span>
+                  <button className="step-btn" onClick={() => stepLots(0.01)}>+</button>
+                </div>
+              </div>
+            </div>
+
+            <div className="form-divider" />
+
+            <div className="info-section">
+              <div className="info-row">
+                <span className="info-label">Current Price</span>
+                <span className="info-value">{currentPrice !== null ? currentPrice.toFixed(5) : '—'}</span>
+              </div>
+              <div className="info-row">
+                <span className="info-label">Trigger at</span>
+                <span className="info-value" style={{ color: '#106cf5' }}>{fmtSLTP(triggerPrice)}</span>
+              </div>
+              <div className="info-row">
+                <span className="info-label">Estimated Margin</span>
+                <span className="info-value">{estimatedMargin}</span>
+              </div>
+              <div className="info-row">
+                <span className="info-label">Balance</span>
+                <span className="info-value">{USDBalance.toFixed(2)}</span>
+              </div>
+            </div>
+
+            <div className="future-action-buttons">
+              <button
+                className="action-button buy-button"
+                onClick={() => handleOpenConfirm('buy', 'pending')}
+                disabled={currentPrice === null || triggerPrice <= 0}
+              >
+                Buy Pending
+              </button>
+              <button
+                className="action-button sell-button"
+                onClick={() => handleOpenConfirm('sell', 'pending')}
+                disabled={currentPrice === null || triggerPrice <= 0}
+              >
+                Sell Pending
+              </button>
+            </div>
+          </>
         )}
 
         {/* Order detail modal (unchanged) */}
@@ -732,14 +826,19 @@ function Futures() {
           />
           <div className="confirm-sheet">
             <div className="confirm-handle" />
-            <div className="confirm-title">Your order has been confirmed</div>
+            <div className="confirm-title">
+              {confirmOrderType === 'market' ? 'Confirm Market Order' : 'Confirm Pending Order'}
+            </div>
             <div className="confirm-summary">
               <span className={`confirm-dir ${confirmDirection === 'buy' ? 'buy' : 'sell'}`}>
-                {confirmDirection === 'buy' ? 'Buy' : 'Sell'}
+                {confirmDirection === 'buy' ? 'Buy' : 'Sell'}{confirmOrderType === 'pending' ? ' Pending' : ''}
               </span>
               <span className="confirm-pair">{selectedCoin}</span>
               <span className="confirm-meta">{lots.toFixed(2)} Lots · {multiplier}×</span>
-              <span className="confirm-price">@ {currentPrice !== null ? currentPrice.toFixed(5) : '—'}</span>
+              {confirmOrderType === 'market'
+                ? <span className="confirm-price">@ {currentPrice !== null ? currentPrice.toFixed(5) : '—'} (market)</span>
+                : <span className="confirm-price">Trigger @ {fmtSLTP(triggerPrice)} · Now {currentPrice !== null ? currentPrice.toFixed(5) : '—'}</span>
+              }
             </div>
             {confirmError && <div className="confirm-error">{confirmError}</div>}
             <div className="confirm-buttons">

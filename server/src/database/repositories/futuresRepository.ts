@@ -218,73 +218,84 @@ class FuturesRepository {
           }
 
           const closeTime = data.closePositionTime || new Date();
-          const lossAmount = record.futuresAmount;
 
-          let finalProfitLossAmount;
-          if (data.profitAndLossAmount !== undefined) {
-            finalProfitLossAmount = data.profitAndLossAmount;
+          // ── Percentage-based P&L (new admin UI) ─────────────────────────
+          // data.profitPercent: number (e.g. 20 = 20%)
+          // netPnl: signed net P&L (+profit, -loss)
+          // walletReturn: amount credited back to wallet (capital ± netPnl)
+          let netPnl: number;
+          let walletReturn: number;
+
+          if (data.profitPercent !== undefined && data.profitPercent !== null) {
+            const pct = Math.max(0, Math.min(100, Number(data.profitPercent)));
+            const pnlAbs = record.futuresAmount * pct / 100;
+            netPnl       = data.control === 'profit' ? pnlAbs : -pnlAbs;
+            walletReturn = record.futuresAmount + netPnl;
+          } else if (data.profitAndLossAmount !== undefined) {
+            // Legacy path: profitAndLossAmount was total returned for profit,
+            // or negative full amount for loss. Convert to netPnl / walletReturn.
+            const raw = Number(data.profitAndLossAmount);
+            if (data.control === 'profit') {
+              // Old format: raw = futuresAmount + profit (e.g. 1200)
+              walletReturn = raw;
+              netPnl       = raw - record.futuresAmount;
+            } else {
+              // Old format: raw = -futuresAmount (e.g. -1000) — user loses all
+              walletReturn = 0;
+              netPnl       = raw; // keeps negative value
+            }
           } else {
+            // Fallback: leverage-based calculation
             const profitAmount = FuturesRepository.calculateProfit(
               record.futuresAmount,
               record.leverage,
               record.contractDuration
             );
-            finalProfitLossAmount = data.control === "profit"
-              ? (record.futuresAmount + profitAmount)
-              : -lossAmount;
+            if (data.control === 'profit') {
+              netPnl       = profitAmount;
+              walletReturn = record.futuresAmount + profitAmount;
+            } else {
+              netPnl       = -record.futuresAmount;
+              walletReturn = 0;
+            }
           }
 
-          if (data.control === "profit") {
-           if (!(finalProfitLossAmount > record.futuresAmount)) {
-             throw new Error400(options.language, "errors.profitAmountInvalid");
-           }
+          if (data.control === 'profit' && netPnl <= 0) {
+            throw new Error400(options.language, 'errors.profitAmountInvalid');
+          }
+          if (data.control === 'loss' && netPnl >= 0) {
+            throw new Error400(options.language, 'errors.lossAmountInvalid');
+          }
 
-           await walletModel.findOneAndUpdate(
-             { _id: selectedWallet._id, tenant: currentTenant.id, accountType: 'exchange' },
-             {
-               $inc: { amount: finalProfitLossAmount },
-               $set: { updatedBy: currentUser.id, updatedAt: new Date() },
-             },
-             { new: true }
-           );
+          // Credit wallet (return capital ± P&L)
+          if (walletReturn > 0) {
+            await walletModel.findOneAndUpdate(
+              { _id: selectedWallet._id, tenant: currentTenant.id, accountType: 'exchange' },
+              {
+                $inc: { amount: walletReturn },
+                $set: { updatedBy: currentUser.id, updatedAt: new Date() },
+              },
+              { new: true }
+            );
+          }
 
-           await transactionModel.create({
-             type: "futures_profit",
-             referenceId: record._id,
-             wallet: selectedWallet._id,
-             asset: "USDT",
-             amount: finalProfitLossAmount,
-             status: "completed",
-             direction: "in",
-             user: record.createdBy,
-             tenant: currentTenant.id,
-             createdBy: currentUser.id,
-             updatedBy: currentUser.id,
-             dateTransaction: new Date(),
-             description: `Futures profit: ${finalProfitLossAmount - record.futuresAmount} USDT profit + ${record.futuresAmount} USDT returned`
-           });
-
-         } else {
-           if (!(lossAmount > 0)) {
-             throw new Error400(options.language, "errors.lossAmountInvalid");
-           }
-
-           await transactionModel.create({
-             type: "futures_loss",
-             referenceId: record._id,
-             wallet: selectedWallet._id,
-             asset: "USDT",
-             amount: lossAmount,
-             status: "completed",
-             direction: "out",
-             user: record.createdBy,
-             tenant: currentTenant.id,
-             createdBy: currentUser.id,
-             updatedBy: currentUser.id,
-             dateTransaction: new Date(),
-             description: `Futures loss: ${lossAmount} USDT`
-           });
-         }
+          await transactionModel.create({
+            type: data.control === 'profit' ? 'futures_profit' : 'futures_loss',
+            referenceId: record._id,
+            wallet: selectedWallet._id,
+            asset: 'USDT',
+            amount: Math.abs(netPnl),
+            status: 'completed',
+            direction: data.control === 'profit' ? 'in' : 'out',
+            user: record.createdBy,
+            tenant: currentTenant.id,
+            createdBy: currentUser.id,
+            updatedBy: currentUser.id,
+            dateTransaction: new Date(),
+            description: data.control === 'profit'
+              ? `Futures profit: +${netPnl.toFixed(2)} USDT (${record.futuresAmount} returned)`
+              : `Futures loss: ${netPnl.toFixed(2)} USDT (${walletReturn.toFixed(2)} returned)`
+          });
 
          await FuturesModel.updateOne(
            { _id: id, tenant: currentTenant.id, finalized: { $ne: true } },
@@ -294,7 +305,7 @@ class FuturesRepository {
                finalized: true,
                finalizedAt: new Date(),
                updatedBy: currentUser.id,
-               profitAndLossAmount: finalProfitLossAmount,
+               profitAndLossAmount: netPnl,
                closePositionPrice: closePrice,
                closePositionTime: closeTime,
              },
