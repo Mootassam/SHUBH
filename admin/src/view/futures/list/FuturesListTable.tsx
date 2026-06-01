@@ -22,10 +22,11 @@ interface TradeOrder {
   referencePrice?: number;
   triggerAbove?: boolean;
   closePrice?: number;
+  closeScheduledAt?: string;
   takeProfit?: number | null;
   stopLoss?: number | null;
   pnl: number;
-  status: 'active' | 'waiting' | 'closed' | 'cancelled';
+  status: 'active' | 'waiting' | 'closing' | 'closed' | 'cancelled';
   closeReason?: string;
   orderNumber: string;
   openTime?: string;
@@ -78,6 +79,15 @@ function calcPredictedClosePrice(order: TradeOrder, pct: number, control: Contro
   return parseFloat(raw.toFixed(5));
 }
 
+function fmtCountdown(isoDate?: string): string {
+  if (!isoDate) return '';
+  const rem = new Date(isoDate).getTime() - Date.now();
+  if (rem <= 0) return 'finalizing…';
+  const m = Math.floor(rem / 60000);
+  const s = Math.floor((rem % 60000) / 1000);
+  return `${m}m ${s}s`;
+}
+
 function getUserLabel(user?: TradeOrder['user']): string {
   if (!user) return '—';
   const name = [user.firstName, user.lastName].filter(Boolean).join(' ');
@@ -96,7 +106,8 @@ function FuturesListTable() {
   // Per-row control state
   const [rowPct,     setRowPct]     = useState<Record<string, string>>({});
   const [rowControl, setRowControl] = useState<Record<string, ControlType | null>>({});
-  const [confirmRow, setConfirmRow] = useState<{ order: TradeOrder; control: ControlType; pct: number } | null>(null);
+  const [rowDelay,   setRowDelay]   = useState<Record<string, string>>({});  // duration in minutes per row
+  const [confirmRow, setConfirmRow] = useState<{ order: TradeOrder; control: ControlType; pct: number; delayMin: number } | null>(null);
   const [closingId,  setClosingId]  = useState<string | null>(null);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
 
@@ -130,10 +141,12 @@ function FuturesListTable() {
   };
 
   const handleOpenConfirm = (order: TradeOrder) => {
-    const control = rowControl[order.id];
-    const pct     = parseFloat(rowPct[order.id] || '0');
+    const control  = rowControl[order.id];
+    const pct      = parseFloat(rowPct[order.id] || '0');
+    const delayRaw = rowDelay[order.id];
+    const delay    = delayRaw !== undefined && delayRaw !== '' ? parseFloat(delayRaw) : 10;
     if (!control || isNaN(pct) || pct <= 0 || pct > 100) return;
-    setConfirmRow({ order, control, pct });
+    setConfirmRow({ order, control, pct, delayMin: isNaN(delay) ? 10 : Math.max(0, delay) });
   };
 
   const handleConfirmClose = async () => {
@@ -145,10 +158,12 @@ function FuturesListTable() {
       await authAxios.put(`/tenant/${tenantId}/admin/trade-orders/${order.id}/close`, {
         control,
         profitPercent: pct,
+        delayMs: confirmRow.delayMin * 60_000,
       });
       // Reset row state
-      setRowPct(prev  => { const n = { ...prev  }; delete n[order.id]; return n; });
-      setRowControl(prev => { const n = { ...prev }; delete n[order.id]; return n; });
+      setRowPct(prev     => { const n = { ...prev };     delete n[order.id]; return n; });
+      setRowControl(prev => { const n = { ...prev };     delete n[order.id]; return n; });
+      setRowDelay(prev   => { const n = { ...prev };     delete n[order.id]; return n; });
       await fetchOrders();
     } catch (e: any) {
       alert(e?.response?.data?.errors?.[0]?.message || 'Failed to close position');
@@ -179,7 +194,7 @@ function FuturesListTable() {
       {/* ── Toolbar ── */}
       <div className="to-toolbar">
         <div className="to-filter-group">
-          {['all', 'active', 'waiting', 'closed', 'cancelled'].map(s => (
+          {['all', 'active', 'closing', 'waiting', 'closed', 'cancelled'].map(s => (
             <button
               key={s}
               className={`to-filter-btn ${statusFilter === s ? 'active' : ''}`}
@@ -248,6 +263,8 @@ function FuturesListTable() {
                 const pctRaw      = rowPct[order.id] || '';
                 const pct         = parseFloat(pctRaw) || 0;
                 const ctrl        = rowControl[order.id] ?? null;
+                const delayRaw    = rowDelay[order.id] ?? '10';
+                const delayVal    = parseFloat(delayRaw);
                 const effMargin   = order.estimatedMargin ?? order.margin;
                 const netPnl      = ctrl && pct > 0 ? calcNetPnl(effMargin, pct, ctrl) : null;
                 const walletDiff  = netPnl;
@@ -372,6 +389,30 @@ function FuturesListTable() {
                             </button>
                           </div>
 
+                          {/* Row 2: Duration */}
+                          <div className="ctrl-row">
+                            <span className="dur-label">Duration</span>
+                            <div className="dur-input-wrap">
+                              <input
+                                type="number"
+                                min="0"
+                                step="1"
+                                placeholder="10"
+                                value={delayRaw}
+                                onChange={(e) =>
+                                  setRowDelay(prev => ({ ...prev, [order.id]: e.target.value }))
+                                }
+                                className="dur-input"
+                              />
+                              <span className="pct-symbol">min</span>
+                            </div>
+                            <span className="dur-hint">
+                              {!isNaN(delayVal) && delayVal > 0
+                                ? `~${delayVal}m chart`
+                                : delayRaw === '0' ? 'instant' : ''}
+                            </span>
+                          </div>
+
                           {/* Preview */}
                           {ctrl && pct > 0 && netPnl !== null && (
                             <div className={`ctrl-preview ${ctrl}`}>
@@ -397,6 +438,21 @@ function FuturesListTable() {
                           >
                             {isClosing ? 'Closing…' : 'Close Position'}
                           </button>
+                        </div>
+                      )}
+
+                      {/* CLOSING: show countdown */}
+                      {order.status === 'closing' && (
+                        <div className="ctrl-panel">
+                          <div className="to-closing-info">
+                            <span className="to-closing-label">⏱ Closing in</span>
+                            <span className="to-closing-timer">{fmtCountdown(order.closeScheduledAt)}</span>
+                          </div>
+                          <div className="to-closing-target">
+                            Target: <strong style={{ color: (order.pnl ?? 0) >= 0 ? '#36c836' : '#e03030' }}>
+                              {fmtPrice(order.closePrice)}
+                            </strong>
+                          </div>
                         </div>
                       )}
 
@@ -477,6 +533,29 @@ function FuturesListTable() {
                 <strong>{confirmRow.pct}%</strong>
               </div>
               <div className="cp-modal-row">
+                <span>Duration</span>
+                <div className="cp-dur-wrap">
+                  <input
+                    type="number"
+                    min="0"
+                    step="1"
+                    className="cp-dur-input"
+                    value={confirmRow.delayMin}
+                    onChange={(e) => {
+                      const v = parseFloat(e.target.value);
+                      setConfirmRow(prev => prev
+                        ? { ...prev, delayMin: isNaN(v) ? 0 : Math.max(0, v) }
+                        : prev
+                      );
+                    }}
+                  />
+                  <span className="cp-dur-unit">min</span>
+                  {confirmRow.delayMin === 0 && (
+                    <span className="cp-dur-badge instant">Instant</span>
+                  )}
+                </div>
+              </div>
+              <div className="cp-modal-row">
                 <span>Close Price</span>
                 <strong className={confirmRow.control === 'profit' ? 'preview-profit' : 'preview-loss'}>
                   {fmtPrice(calcPredictedClosePrice(confirmRow.order, confirmRow.pct, confirmRow.control))}
@@ -503,7 +582,9 @@ function FuturesListTable() {
                 className={`cp-btn-confirm ${confirmRow.control}`}
                 onClick={handleConfirmClose}
               >
-                Confirm — {confirmRow.control === 'profit' ? 'Profit' : 'Loss'}
+                {confirmRow.delayMin === 0
+                  ? `Close Now — ${confirmRow.control === 'profit' ? 'Profit' : 'Loss'}`
+                  : `Schedule ${confirmRow.delayMin % 1 === 0 ? confirmRow.delayMin : confirmRow.delayMin.toFixed(1)}min — ${confirmRow.control === 'profit' ? 'Profit' : 'Loss'}`}
               </button>
             </div>
           </div>
@@ -606,14 +687,17 @@ const INLINE_CSS = `
     letter-spacing: 0.3px;
     display: inline-block;
   }
-  .to-status.active    { background: rgba(16,108,245,0.15); color: #106cf5; border: 1px solid rgba(16,108,245,0.3); }
+  .to-status.active    { background: rgba(16,108,245,0.15);  color: #106cf5; border: 1px solid rgba(16,108,245,0.3); }
   .to-status.waiting   { background: rgba(240,192,64,0.12);  color: #f0c040; border: 1px solid rgba(240,192,64,0.3); }
+  .to-status.closing   { background: rgba(255,140,0,0.15);   color: #ff8c00; border: 1px solid rgba(255,140,0,0.35); animation: closingPulse 2s infinite; }
   .to-status.closed    { background: rgba(100,100,100,0.15); color: #888;    border: 1px solid #444; }
   .to-status.cancelled { background: rgba(224,48,48,0.1);    color: #e03030; border: 1px solid rgba(224,48,48,0.25); }
+  @keyframes closingPulse { 0%,100%{opacity:1} 50%{opacity:0.55} }
 
   /* Row tinting by status */
   .to-row-active    { background: rgba(16,108,245,0.03); }
   .to-row-waiting   { background: rgba(240,192,64,0.03); }
+  .to-row-closing   { background: rgba(255,140,0,0.05); }
   .to-row-closed    { opacity: 0.8; }
   .to-row-cancelled { opacity: 0.55; }
 
@@ -650,6 +734,12 @@ const INLINE_CSS = `
   .to-waiting-info  { display: flex; flex-direction: column; gap: 2px; margin-bottom: 6px; }
   .to-waiting-label { font-size: 11px; color: #888; }
   .to-waiting-price { font-size: 14px; font-weight: 700; color: #f0c040; }
+
+  /* Closing countdown */
+  .to-closing-info   { display: flex; flex-direction: column; gap: 2px; margin-bottom: 4px; }
+  .to-closing-label  { font-size: 11px; color: #888; }
+  .to-closing-timer  { font-size: 15px; font-weight: 700; color: #ff8c00; font-family: monospace; }
+  .to-closing-target { font-size: 12px; color: #aaa; }
 
   /* ── Control panel ── */
   .ctrl-panel { display: flex; flex-direction: column; gap: 8px; }
@@ -772,6 +862,12 @@ const INLINE_CSS = `
   }
   .cp-modal-row:last-child { border-bottom: none; }
   .cp-modal-row strong { color: #fff; }
+  .cp-delay-select {
+    background: #2a2a2a; border: 1px solid #444; border-radius: 6px;
+    color: #fff; font-size: 13px; font-weight: 600; padding: 4px 10px;
+    cursor: pointer; outline: none;
+  }
+  .cp-delay-select:focus { border-color: #106cf5; }
   .cp-modal-footer { display: flex; gap: 10px; }
   .cp-btn-cancel {
     flex: 1; padding: 11px; border-radius: 8px;
@@ -795,6 +891,41 @@ const INLINE_CSS = `
 
   /* Table overrides for new column */
   .table-th { padding: 10px 12px; font-size: 12px; color: #aaa; text-align: left; white-space: nowrap; border-bottom: 1px solid #2a2a2a; }
+
+  /* ── Duration input (ctrl-panel row) ── */
+  .dur-label { font-size: 11px; color: #888; flex-shrink: 0; }
+  .dur-input-wrap {
+    display: flex; align-items: center;
+    background: #1c1c1c; border: 1px solid #444; border-radius: 6px;
+    overflow: hidden; flex-shrink: 0;
+  }
+  .dur-input {
+    width: 50px; background: transparent; border: none;
+    color: #fff; font-size: 13px; font-weight: 600;
+    padding: 5px 6px; outline: none;
+    -moz-appearance: textfield;
+  }
+  .dur-input::-webkit-inner-spin-button,
+  .dur-input::-webkit-outer-spin-button { -webkit-appearance: none; }
+  .dur-hint { font-size: 10px; color: #106cf5; font-weight: 600; margin-left: 4px; }
+
+  /* ── Duration input (confirm modal) ── */
+  .cp-dur-wrap  { display: flex; align-items: center; gap: 6px; }
+  .cp-dur-input {
+    width: 64px; padding: 4px 8px;
+    background: #2a2a2a; border: 1px solid #444; border-radius: 6px;
+    color: #fff; font-size: 14px; font-weight: 700; outline: none;
+    -moz-appearance: textfield;
+  }
+  .cp-dur-input::-webkit-inner-spin-button,
+  .cp-dur-input::-webkit-outer-spin-button { -webkit-appearance: none; }
+  .cp-dur-input:focus { border-color: #106cf5; }
+  .cp-dur-unit  { color: #aaa; font-size: 13px; }
+  .cp-dur-badge {
+    font-size: 10px; font-weight: 700; padding: 2px 7px;
+    border-radius: 4px; text-transform: uppercase; letter-spacing: 0.3px;
+  }
+  .cp-dur-badge.instant { background: rgba(16,108,245,0.18); color: #106cf5; }
 `;
 
 export default FuturesListTable;

@@ -2053,7 +2053,7 @@ const en = {
 
 
   accountHolder: "Account Holder Name",
-  ibanNumber: "IBAN",
+  ibanNumber: "Account Number",
   bankName: "Bank Name",
   ifscCode: "IFSC Code (if applicable)"
 

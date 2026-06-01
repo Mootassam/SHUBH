@@ -38,11 +38,11 @@ export default (database) => {
       pnl: { type: Number, default: 0 },
 
       // Status lifecycle:
-      //   market  → active  → closed
-      //   pending → waiting → active → closed | cancelled
+      //   market  → active  → closing → closed
+      //   pending → waiting → active  → closing → closed | cancelled
       status: {
         type: String,
-        enum: ['active', 'waiting', 'closed', 'cancelled'],
+        enum: ['active', 'waiting', 'closing', 'closed', 'cancelled'],
         required: true,
         default: 'active',
       },
@@ -51,6 +51,8 @@ export default (database) => {
         type: String,
         enum: ['manual', 'tp', 'sl', 'cancelled'],
       },
+
+      closeScheduledAt: { type: Date }, // when closing → closed transition fires
 
       orderNumber: { type: String, required: true },
       openTime:    { type: Date },

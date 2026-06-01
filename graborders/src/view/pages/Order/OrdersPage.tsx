@@ -17,16 +17,18 @@ interface TradeOrder {
   lots: number;
   multiplier: number;
   margin: number;
+  estimatedMargin?: number;
   fee: number;
   entryPrice?: number;
   targetPrice?: number;
   referencePrice?: number;
   triggerAbove?: boolean;
   closePrice?: number;
+  closeScheduledAt?: string;
   takeProfit?: number | null;
   stopLoss?: number | null;
   pnl: number;
-  status: 'active' | 'waiting' | 'closed' | 'cancelled';
+  status: 'active' | 'waiting' | 'closing' | 'closed' | 'cancelled';
   closeReason?: 'manual' | 'tp' | 'sl' | 'cancelled';
   orderNumber: string;
   openTime?: string;
@@ -99,7 +101,9 @@ const OrdersPage: React.FC = () => {
   const [cancellingId, setCancellingId] = useState<string | null>(null);
   const [detailOrder, setDetailOrder]   = useState<TradeOrder | null>(null);
 
-  const [livePrices, setLivePrices] = useState<Record<string, number>>({});
+  const [livePrices, setLivePrices]       = useState<Record<string, number>>({});
+  // Injected prices broadcast by CustomTradingChart during admin deferred close
+  const [injectedPrices, setInjectedPrices] = useState<Record<string, number>>({});
 
   // WS refs
   const wsRef          = useRef<WebSocket | null>(null);
@@ -127,6 +131,28 @@ const OrdersPage: React.FC = () => {
   }, [tenantId]);
 
   useEffect(() => { fetchOrders(); }, [fetchOrders]);
+
+  // ── Poll injected prices from localStorage (CustomTradingChart broadcasts) ──
+  useEffect(() => {
+    const poll = () => {
+      const result: Record<string, number> = {};
+      try {
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (!key?.startsWith('lcp_')) continue;
+          const sym = key.substring(4);
+          const raw = localStorage.getItem(key);
+          if (!raw) continue;
+          const data = JSON.parse(raw);
+          if (Date.now() - data.ts < 8_000) result[sym] = data.p;
+        }
+      } catch {}
+      setInjectedPrices(result);
+    };
+    poll();
+    const id = setInterval(poll, 2000);
+    return () => clearInterval(id);
+  }, []);
 
   // ── Subscribe helper ─────────────────────────────────────────────────────
 
@@ -299,12 +325,12 @@ const OrdersPage: React.FC = () => {
 
   // ── Derived ──────────────────────────────────────────────────────────────
 
-  const activeOrders  = orders.filter(o => o.status === 'active');
+  const activeOrders  = orders.filter(o => o.status === 'active' || o.status === 'closing');
   const waitingOrders = orders.filter(o => o.status === 'waiting');
   const historyOrders = orders.filter(o => o.status === 'closed' || o.status === 'cancelled');
 
   const totalPnl = activeOrders.reduce((sum, o) => {
-    const lp = livePrices[o.symbol];
+    const lp = injectedPrices[o.symbol] ?? livePrices[o.symbol];
     return sum + (lp != null ? calcPnl(o, lp) : 0);
   }, 0);
 
@@ -362,22 +388,39 @@ const OrdersPage: React.FC = () => {
               {activeOrders.length === 0 ? (
                 <div className="op-empty">No open positions</div>
               ) : activeOrders.map(order => {
-                const oid       = order.id || order._id;
-                const lp        = livePrices[order.symbol] ?? null;
-                const pnl       = lp != null ? calcPnl(order, lp) : null;
-                const isClosing = closingId === oid;
-                const pair      = getPairInfo(order.symbol) ?? { symbol: order.symbol, name: order.symbol };
+                const oid            = order.id || order._id;
+                const injP           = injectedPrices[order.symbol] ?? null;
+                const lp             = injP ?? livePrices[order.symbol] ?? null;
+                const pnl            = lp != null ? calcPnl(order, lp) : null;
+                const isManualClosing = closingId === oid;
+                const isAdminClosing  = order.status === 'closing';
+                const pair           = getPairInfo(order.symbol) ?? { symbol: order.symbol, name: order.symbol };
+
+                // Countdown for admin-scheduled close
+                let closingCountdown = '';
+                if (isAdminClosing && order.closeScheduledAt) {
+                  const rem = new Date(order.closeScheduledAt).getTime() - Date.now();
+                  if (rem > 0) {
+                    const m = Math.floor(rem / 60000);
+                    const s = Math.floor((rem % 60000) / 1000);
+                    closingCountdown = `${m}m ${s}s`;
+                  } else {
+                    closingCountdown = 'Finalizing…';
+                  }
+                }
 
                 return (
-                  <div key={oid} className="op-order-card">
+                  <div key={oid} className={`op-order-card${isAdminClosing ? ' op-card-closing' : ''}`}>
 
                     <div className="op-order-top">
                       <div className="op-order-left">
                         <PairIcon pair={pair as any} size="sm" />
                         <span className="op-sym">{order.symbol}</span>
-                        {order.orderType === 'pending' && (
+                        {isAdminClosing ? (
+                          <span className="op-tag op-tag-closing">Closing</span>
+                        ) : order.orderType === 'pending' ? (
                           <span className="op-tag op-tag-executed">Executed</span>
-                        )}
+                        ) : null}
                       </div>
                       <div className="op-badges">
                         <span className={`op-dir ${order.direction}`}>
@@ -392,10 +435,29 @@ const OrdersPage: React.FC = () => {
                       <span className="op-open-price">{fmtPrice(order.entryPrice)}</span>
                       <span className="op-arrow">→</span>
                       {lp != null
-                        ? <span className="op-live-price">{fmtPrice(lp)}</span>
+                        ? <span className={`op-live-price${injP != null ? ' op-price-injected' : ''}`}>
+                            {fmtPrice(lp)}
+                          </span>
                         : <span className="op-price-loading"><span className="op-dot-pulse" /></span>
                       }
+                      {isAdminClosing && order.closePrice != null && (
+                        <span className="op-target-arrow">
+                          → <span className={`op-close-target ${(order.pnl ?? 0) >= 0 ? 'green' : 'red'}`}>
+                              {fmtPrice(order.closePrice)}
+                            </span>
+                        </span>
+                      )}
                     </div>
+
+                    {/* Closing countdown bar */}
+                    {isAdminClosing && (
+                      <div className="op-closing-bar">
+                        <div className="op-closing-pulse" />
+                        <span className="op-closing-label">
+                          Position closing{closingCountdown ? ` in ${closingCountdown}` : '…'}
+                        </span>
+                      </div>
+                    )}
 
                     {(order.takeProfit || order.stopLoss) && (
                       <div className="op-sltp-row">
@@ -411,13 +473,20 @@ const OrdersPage: React.FC = () => {
                         </span>
                         <span className="op-date">{fmtDate(order.openTime ?? order.createdAt)}</span>
                       </div>
-                      <button
-                        className="op-close-btn"
-                        onClick={() => handleClose(order)}
-                        disabled={isClosing || lp == null}
-                      >
-                        {isClosing ? 'Closing…' : 'Close Position'}
-                      </button>
+                      {isAdminClosing ? (
+                        <div className="op-closing-chip">
+                          <span className="op-closing-dot" />
+                          Closing…
+                        </div>
+                      ) : (
+                        <button
+                          className="op-close-btn"
+                          onClick={() => handleClose(order)}
+                          disabled={isManualClosing || lp == null}
+                        >
+                          {isManualClosing ? 'Closing…' : 'Close Position'}
+                        </button>
+                      )}
                     </div>
 
                   </div>
@@ -734,6 +803,47 @@ const CSS = `
   .op-tag-waiting   { background: #fff3cd; color: #856404; }
   .op-tag-executed  { background: #d1ecf1; color: #0c5460; }
   .op-tag-cancelled { background: #f8d7da; color: #721c24; }
+  .op-tag-closing   {
+    background: rgba(255,140,0,0.15); color: #ff8c00;
+    animation: opClosingPulse 1.5s ease-in-out infinite;
+  }
+  @keyframes opClosingPulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+
+  /* Closing order card */
+  .op-card-closing { border-left: 3px solid #ff8c00 !important; }
+
+  /* Injected / animated price */
+  .op-price-injected { color: #ff8c00 !important; }
+
+  /* Target close price label */
+  .op-target-arrow { font-size: 12px; color: #aaa; margin-left: 4px; }
+  .op-close-target { font-weight: 700; }
+  .op-close-target.green { color: #36c836; }
+  .op-close-target.red   { color: #e03030; }
+
+  /* Closing progress bar */
+  .op-closing-bar {
+    display: flex; align-items: center; gap: 7px;
+    background: rgba(255,140,0,0.07); border-radius: 6px;
+    padding: 6px 10px; margin: 4px 0;
+  }
+  .op-closing-pulse {
+    width: 8px; height: 8px; border-radius: 50%; background: #ff8c00; flex-shrink: 0;
+    animation: opClosingPulse 1.2s ease-in-out infinite;
+  }
+  .op-closing-label { font-size: 12px; color: #ff8c00; font-weight: 600; }
+
+  /* Closing chip (replaces Close button) */
+  .op-closing-chip {
+    display: flex; align-items: center; gap: 5px;
+    font-size: 12px; font-weight: 700; color: #ff8c00;
+    background: rgba(255,140,0,0.1); border-radius: 8px;
+    padding: 8px 14px;
+  }
+  .op-closing-dot {
+    width: 7px; height: 7px; border-radius: 50%; background: #ff8c00;
+    animation: opClosingPulse 1.2s ease-in-out infinite;
+  }
 
   /* Badges row */
   .op-badges { display: flex; align-items: center; gap: 5px; }

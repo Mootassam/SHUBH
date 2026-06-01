@@ -129,8 +129,9 @@ function Withdraw() {
   const listAssets = useSelector(assetsListSelectors.selectRows);
   const loadingAssets = useSelector(assetsListSelectors.selectLoading);
 
-  const [showBankModal, setShowBankModal] = useState(false);
+  const [showBankModal, setShowBankModal]     = useState(false);
   const [showCryptoModal, setShowCryptoModal] = useState(false);
+  const [showSuccess, setShowSuccess]         = useState(false);
 
   const refreshItems = useCallback(async () => {
     await dispatch(authActions.doRefreshCurrentUser());
@@ -244,8 +245,14 @@ function Withdraw() {
       withdrawType: withdrawalMethod
     };
 
-    await dispatch(actions.doCreate(values));
-    await refreshItems();
+    try {
+      await dispatch(actions.doCreate(values));
+      await refreshItems();
+      form.reset();
+      setShowSuccess(true);
+    } catch {
+      // errors are handled inside the action
+    }
   };
 
   const form = useForm({
@@ -465,6 +472,41 @@ function Withdraw() {
           </div>
         </div>
       </CustomModal>
+
+      {/* ── Withdrawal Success Modal ── */}
+      {showSuccess && (
+        <div className="wd-success-overlay">
+          <div className="wd-success-card">
+
+            {/* Animated checkmark */}
+            <div className="wd-success-icon-wrap">
+              <svg className="wd-check-svg" viewBox="0 0 52 52">
+                <circle className="wd-check-circle" cx="26" cy="26" r="25" fill="none" />
+                <path   className="wd-check-tick"   fill="none" d="M14 27l8 8 16-16" />
+              </svg>
+            </div>
+
+            <div className="wd-success-title">Request Submitted</div>
+
+            <p className="wd-success-msg">
+              Dear client, your request is being processed.
+              <br />
+              It will take <strong>24 hours</strong>.
+              <br />
+              You will receive your withdrawal soon.
+            </p>
+
+            <div className="wd-success-ref">
+              <i className="fas fa-clock" />
+              &nbsp;Processing time: up to 24 hours
+            </div>
+
+            <button className="wd-success-btn" onClick={() => setShowSuccess(false)}>
+              OK, Got it
+            </button>
+          </div>
+        </div>
+      )}
 
       <style>{`
         * {
@@ -860,6 +902,113 @@ function Withdraw() {
             font-size: 13px;
           }
         }
+
+        /* ── Withdrawal Success Modal ── */
+        .wd-success-overlay {
+          position: fixed;
+          inset: 0;
+          background: rgba(0, 0, 0, 0.55);
+          backdrop-filter: blur(6px);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 99999;
+          animation: wdFadeIn 0.25s ease;
+        }
+
+        .wd-success-card {
+          background: #ffffff;
+          border-radius: 24px;
+          width: 88%;
+          max-width: 360px;
+          padding: 36px 28px 32px;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 16px;
+          box-shadow: 0 24px 64px rgba(0, 0, 0, 0.22);
+          animation: wdSlideUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        /* Animated SVG checkmark */
+        .wd-success-icon-wrap {
+          width: 72px;
+          height: 72px;
+        }
+        .wd-check-svg {
+          width: 72px;
+          height: 72px;
+        }
+        .wd-check-circle {
+          stroke: #22c55e;
+          stroke-width: 2;
+          stroke-dasharray: 166;
+          stroke-dashoffset: 166;
+          stroke-linecap: round;
+          animation: wdCircleDraw 0.5s ease forwards 0.1s;
+        }
+        .wd-check-tick {
+          stroke: #22c55e;
+          stroke-width: 3;
+          stroke-linecap: round;
+          stroke-linejoin: round;
+          stroke-dasharray: 48;
+          stroke-dashoffset: 48;
+          animation: wdTickDraw 0.35s ease forwards 0.55s;
+        }
+
+        .wd-success-title {
+          font-size: 20px;
+          font-weight: 700;
+          color: #111;
+          text-align: center;
+        }
+
+        .wd-success-msg {
+          font-size: 14px;
+          color: #555;
+          text-align: center;
+          line-height: 1.7;
+        }
+        .wd-success-msg strong {
+          color: #111;
+          font-weight: 700;
+        }
+
+        .wd-success-ref {
+          background: #f0fdf4;
+          border: 1px solid #bbf7d0;
+          border-radius: 10px;
+          padding: 10px 16px;
+          font-size: 13px;
+          color: #15803d;
+          font-weight: 600;
+          width: 100%;
+          text-align: center;
+        }
+
+        .wd-success-btn {
+          margin-top: 4px;
+          width: 100%;
+          padding: 14px;
+          background: linear-gradient(135deg, #106cf5 0%, #0a4fc4 100%);
+          color: #fff;
+          border: none;
+          border-radius: 12px;
+          font-size: 15px;
+          font-weight: 700;
+          cursor: pointer;
+          transition: opacity 0.2s, transform 0.15s;
+          letter-spacing: 0.2px;
+        }
+        .wd-success-btn:hover  { opacity: 0.9; transform: translateY(-1px); }
+        .wd-success-btn:active { transform: translateY(0); }
+
+        @keyframes wdFadeIn  { from { opacity: 0; }                        to { opacity: 1; } }
+        @keyframes wdSlideUp { from { transform: translateY(30px) scale(0.95); opacity: 0; }
+                               to   { transform: translateY(0)     scale(1);    opacity: 1; } }
+        @keyframes wdCircleDraw { to { stroke-dashoffset: 0; } }
+        @keyframes wdTickDraw   { to { stroke-dashoffset: 0; } }
       `}</style>
     </div>
   );

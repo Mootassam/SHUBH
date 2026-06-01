@@ -8,7 +8,7 @@ import futuresListSelectors from "src/modules/futures/list/futuresListSelectors"
 import assetsListAction from "src/modules/assets/list/assetsListActions";
 import selector from "src/modules/assets/list/assetsListSelectors";
 import { i18n } from '../../../i18n';
-import TradingViewChart from "../Market/TradingViewChart";
+import CustomTradingChart, { PriceInjection } from "../Market/CustomTradingChart";
 import authSelectors from "src/modules/auth/authSelectors";
 import { getPairInfo, PairIcon } from "src/view/shared/pairConfig";
 import { getTvWsUrl } from "src/view/shared/wsUrl";
@@ -93,6 +93,7 @@ function Futures() {
   const pendingCount = useSelector(futuresListSelectors.pendingcount);
   const pendingLoading = useSelector(futuresListSelectors.pendingLoading);
   const currentUser = useSelector(authSelectors.selectCurrentUser);
+  const currentTenant = useSelector(authSelectors.selectCurrentTenant);
 
   // ----- WebSocket real‑time data -----
   const wsRef = useRef<WebSocket | null>(null);
@@ -102,6 +103,7 @@ function Futures() {
 
   const [markets, setMarkets] = useState<MarketData[]>([]);
   const [currentPrice, setCurrentPrice] = useState<number | null>(null);
+  const livePriceRef = useRef<number | null>(null);
   const [priceChangePercent, setPriceChangePercent] = useState<number | null>(null);
   const initialPriceRef = useRef<{ [symbol: string]: number }>({});
   const highRef = useRef<{ [symbol: string]: number }>({});
@@ -120,6 +122,28 @@ function Futures() {
   const [openingOrders, setOpeningOrders] = useState<any[]>([]);
 
   const [isDemoAccount, setIsDemoAccount] = useState<boolean>(false);
+
+  // Price injection: drives chart animation when admin schedules a deferred close
+  const [priceInjection, setPriceInjection] = useState<PriceInjection | null>(null);
+  const priceInjectionRef = useRef<PriceInjection | null>(null);
+  useEffect(() => { priceInjectionRef.current = priceInjection; }, [priceInjection]);
+
+  // Header display price: shows injected price during animation, real price otherwise
+  const [headerInjectedPrice, setHeaderInjectedPrice] = useState<number | null>(null);
+  useEffect(() => {
+    const poll = () => {
+      try {
+        const raw = localStorage.getItem(`lcp_${selectedCoinRef.current}`);
+        if (!raw) { setHeaderInjectedPrice(null); return; }
+        const data = JSON.parse(raw);
+        if (Date.now() - data.ts < 8_000) setHeaderInjectedPrice(data.p);
+        else setHeaderInjectedPrice(null);
+      } catch { setHeaderInjectedPrice(null); }
+    };
+    poll();
+    const id = setInterval(poll, 2000);
+    return () => clearInterval(id);
+  }, []); // reads selectedCoinRef via ref so no dep needed
 
   // Trading form state – new
   const [multiplier, setMultiplier] = useState(100);
@@ -244,6 +268,7 @@ function Futures() {
 
   const selectedCoinRef = useRef(selectedCoin);
   useEffect(() => { selectedCoinRef.current = selectedCoin; }, [selectedCoin]);
+  useEffect(() => { livePriceRef.current = currentPrice; }, [currentPrice]);
 
   useEffect(() => {
     connectWebSocket();
@@ -290,6 +315,74 @@ function Futures() {
     dispatch(assetsListAction.doFetch());
   }, [dispatch]);
 
+  // ── Poll 'closing' orders every 20 s; start chart injection when found ──
+  useEffect(() => {
+    if (!currentTenant?.id) return;
+
+    const poll = async () => {
+      try {
+        const { data } = await authAxios.get(
+          `/tenant/${currentTenant.id}/trade-orders`,
+          { params: { status: 'closing' } }
+        );
+        const rows: any[] = data?.data?.rows ?? data?.rows ?? [];
+
+        const match = rows.find(
+          (o: any) => o.symbol === selectedCoinRef.current && o.status === 'closing'
+        );
+
+        if (match && !priceInjectionRef.current) {
+          const now          = Date.now();
+          const scheduledAt  = match.closeScheduledAt
+            ? new Date(match.closeScheduledAt).getTime()
+            : now + 600_000;
+          const remainingMs  = Math.max(5_000, scheduledAt - now);
+
+          // Attempt to continue from the last saved animation candle (page-refresh continuity).
+          // Only use saved data if it belongs to the SAME animation (same startedAt window).
+          let entryPrice = livePriceRef.current ?? match.entryPrice ?? match.closePrice;
+          try {
+            const raw = localStorage.getItem(`lca_${match.symbol}`);
+            if (raw) {
+              const saved = JSON.parse(raw);
+              // Accept saved data only if it was written within this animation's window
+              const animStart = match.closeScheduledAt
+                ? new Date(match.closeScheduledAt).getTime() - (Number(match.closeScheduledAt ? remainingMs : 600_000))
+                : Date.now() - 600_000;
+              if (saved.entries?.length && saved.ts >= animStart - 60_000) {
+                const last = saved.entries[saved.entries.length - 1];
+                if (last?.c) entryPrice = last.c;
+              }
+            }
+          } catch {}
+
+          const inj: PriceInjection = {
+            symbol:      match.symbol,
+            entryPrice,
+            targetPrice: match.closePrice,
+            startedAt:   now,
+            durationMs:  remainingMs,
+          };
+          priceInjectionRef.current = inj;
+          setPriceInjection(inj);
+        }
+
+        // Injection finished or order no longer closing → clear + refresh balance
+        if (!match && priceInjectionRef.current) {
+          priceInjectionRef.current = null;
+          setPriceInjection(null);
+          dispatch(assetsListAction.doFetch());
+        }
+      } catch {
+        // silent – network errors handled elsewhere
+      }
+    };
+
+    poll();
+    const id = setInterval(poll, 20_000);
+    return () => clearInterval(id);
+  }, [currentTenant?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Formatting helpers
   const formatNumber = useCallback((num: any, decimals?: number): string => {
     if (num === null || num === undefined) return "0.00";
@@ -333,8 +426,6 @@ function Futures() {
 
 
   // Confirm order handler
-  const currentTenant = useSelector(authSelectors.selectCurrentTenant);
-
   const handleOpenConfirm = (direction: 'buy' | 'sell', orderType: 'market' | 'pending' = 'market') => {
     setConfirmDirection(direction);
     setConfirmOrderType(orderType);
@@ -389,6 +480,7 @@ function Futures() {
   const handleOpenCoinModal = () => setIsCoinModalOpen(true);
   const handleCloseCoinModal = () => setIsCoinModalOpen(false);
   const handleSelectCoin = (coin: string) => {
+    setCurrentPrice(null); // ensure livePrice=null before remount so history uses the correct new price
     setSelectedCoin(coin);
     setIsCoinModalOpen(false);
   };
@@ -539,9 +631,19 @@ function Futures() {
         </div>
         <div
           className="market-price"
-          style={{ color: (priceChangePercent ?? 0) < 0 ? '#ff4d4d' : '#36f936' }}
+          style={{ color: headerInjectedPrice != null
+            ? (headerInjectedPrice < (currentPrice ?? headerInjectedPrice) ? '#ff4d4d' : '#36f936')
+            : (priceChangePercent ?? 0) < 0 ? '#ff4d4d' : '#36f936' }}
         >
-          {currentPrice !== null ? (
+          {headerInjectedPrice != null ? (
+            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              ${formatNumber(headerInjectedPrice)}
+              <span style={{ fontSize: 11, fontWeight: 600, background: 'rgba(255,140,0,0.25)',
+                color: '#ffa040', borderRadius: 5, padding: '1px 6px', letterSpacing: '0.3px' }}>
+                CLOSING
+              </span>
+            </span>
+          ) : currentPrice !== null ? (
             `$${formatNumber(currentPrice)}`
           ) : (
             <div className="loading-placeholder" style={{ width: '120px', height: '28px' }} />
@@ -561,7 +663,13 @@ function Futures() {
 
       {/* White content card */}
       <div className="content-card">
-        <TradingViewChart key={selectedCoin} symbol={selectedCoin} height={400} />
+        <CustomTradingChart
+          key={selectedCoin}
+          symbol={selectedCoin}
+          livePrice={currentPrice}
+          height={400}
+          priceInjection={priceInjection}
+        />
 
         {/* ✅ New pill-shaped tabs */}
         <div className="pill-tabs">
