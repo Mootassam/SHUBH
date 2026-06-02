@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useHistory, useParams } from "react-router-dom";
-import CustomTradingChart from "./CustomTradingChart";
+import CustomTradingChart, { PriceInjection } from "./CustomTradingChart";
+import useSymbolInjections, { getInjectionDisplayPrice } from "src/view/shared/useSymbolInjections";
 import { i18n } from "../../../i18n";
 import CoinSelectorSidebar from "src/view/shared/modals/CoinSelectorSidebar";
 import { Link } from "react-router-dom";
@@ -63,22 +64,33 @@ function MarketDetail() {
   const [showCoinSelector, setShowCoinSelector] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Injected price from admin close animation (broadcast by CustomTradingChart in /futures)
-  const [injectedPrice, setInjectedPrice] = useState<number | null>(null);
+  // Global chart injections (server-driven, same for all users)
+  const symbolInjections = useSymbolInjections();
+  const serverInj = symbolInjections[selectedCoin] ?? null;
+
+  // 1 s ticker so the deterministic injected price animates smoothly
+  const [, setNowTick] = useState(0);
   useEffect(() => {
-    const poll = () => {
-      try {
-        const raw = localStorage.getItem(`lcp_${selectedCoin}`);
-        if (!raw) { setInjectedPrice(null); return; }
-        const data = JSON.parse(raw);
-        if (Date.now() - data.ts < 8_000) setInjectedPrice(data.p);
-        else setInjectedPrice(null);
-      } catch { setInjectedPrice(null); }
-    };
-    poll();
-    const id = setInterval(poll, 2000);
+    const id = setInterval(() => setNowTick(t => t + 1), 1000);
     return () => clearInterval(id);
-  }, [selectedCoin]);
+  }, []);
+
+  // Deterministic injected price (identical on all devices, no localStorage)
+  const injectedPrice = serverInj ? getInjectionDisplayPrice(serverInj) : null;
+
+  // Stable injection object for the chart — all fields from the server
+  const chartInjection = useMemo<PriceInjection | null>(() => {
+    if (!serverInj) return null;
+    return {
+      symbol:      serverInj.symbol,
+      entryPrice:  serverInj.entryPrice,
+      targetPrice: serverInj.targetPrice,
+      startedAt:   serverInj.startedAt,
+      durationMs:  serverInj.durationMs,
+      seed:        serverInj.seed,
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [serverInj?.symbol, serverInj?.startedAt, serverInj?.targetPrice, serverInj?.durationMs, serverInj?.entryPrice, serverInj?.seed]);
 
   useEffect(() => {
     selectedCoinRef.current = selectedCoin;
@@ -399,65 +411,55 @@ function MarketDetail() {
       {/* White content card – all sections inside */}
       <div className="content-card">
         {/* Price Section */}
-        <div className="price-section">
-          <div className="price-main-row">
-            <div className="price-left-section">
-              <div className="current-price">
-                {(injectedPrice ?? currentPrice) !== null ? (
-                  <span style={{
-                    color: injectedPrice != null
-                      ? '#ff8c00'
-                      : (priceChangePercent !== null && priceChangePercent < 0 ? '#f56c6c' : '#37b66a')
-                  }}>
-                    {formatNumber((injectedPrice ?? currentPrice)!, selectedCoin)}
-                  </span>
-                ) : (
-                  <LoadingPlaceholder width="120px" height="28px" />
-                )}
-              </div>
-              <div className="price-info-row">
-                <div className="usd-price" style={{ color: injectedPrice != null ? '#ff8c00' : undefined }}>
-                  {(injectedPrice ?? currentPrice) !== null
-                    ? `$${(injectedPrice ?? currentPrice)!.toFixed(2)}`
-                    : '$0.00'}
-                </div>
-                {injectedPrice != null ? (
-                  <div style={{
-                    fontSize: 12, fontWeight: 700, color: '#ff8c00',
-                    background: 'rgba(255,140,0,0.1)', borderRadius: 5,
-                    padding: '2px 8px', display: 'flex', alignItems: 'center', gap: 4
-                  }}>
-                    <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#ff8c00',
-                      display: 'inline-block', animation: 'mdPulse 1.2s infinite' }} />
-                    CLOSING
-                  </div>
-                ) : (
-                  <div className="price-change" style={{
-                    color: priceChangePercent !== null && priceChangePercent < 0 ? '#f56c6c' : '#37b66a'
-                  }}>
-                    {priceChangePercent !== null ? (
-                      `${priceChangePercent < 0 ? '−' : '+'}${Math.abs(priceChangePercent).toFixed(2)}%`
+        {(() => {
+          // Effective price + change look completely real (no "closing" styling).
+          const effPrice = injectedPrice ?? currentPrice;
+          const injChange = (serverInj && injectedPrice != null)
+            ? ((injectedPrice - serverInj.entryPrice) / serverInj.entryPrice) * 100
+            : null;
+          const changePct = injChange != null ? injChange : priceChangePercent;
+          const down = changePct !== null && changePct < 0;
+          return (
+            <div className="price-section">
+              <div className="price-main-row">
+                <div className="price-left-section">
+                  <div className="current-price">
+                    {effPrice !== null ? (
+                      <span style={{ color: down ? '#f56c6c' : '#37b66a' }}>
+                        {formatNumber(effPrice, selectedCoin)}
+                      </span>
                     ) : (
-                      <LoadingPlaceholder width="60px" height="16px" />
+                      <LoadingPlaceholder width="120px" height="28px" />
                     )}
                   </div>
-                )}
+                  <div className="price-info-row">
+                    <div className="usd-price">
+                      {effPrice !== null ? `$${effPrice.toFixed(2)}` : '$0.00'}
+                    </div>
+                    <div className="price-change" style={{ color: down ? '#f56c6c' : '#37b66a' }}>
+                      {changePct !== null ? (
+                        `${changePct < 0 ? '−' : '+'}${Math.abs(changePct).toFixed(2)}%`
+                      ) : (
+                        <LoadingPlaceholder width="60px" height="16px" />
+                      )}
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
-        </div>
+          );
+        })()}
 
         {/* Chart Section */}
         <div className="chart-section">
           <CustomTradingChart
             key={selectedCoin}
             symbol={selectedCoin}
-            livePrice={injectedPrice ?? currentPrice}
+            livePrice={currentPrice}
             height={400}
+            priceInjection={chartInjection}
           />
         </div>
-
-        <style>{`@keyframes mdPulse { 0%,100%{opacity:1} 50%{opacity:0.4} }`}</style>
 
         {/* Tabs (Order Book / Transactions) */}
         <div className="tabs-section">

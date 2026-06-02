@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { PAIRS, Pair, PairIcon } from 'src/view/shared/pairConfig';
 import { getTvWsUrl } from 'src/view/shared/wsUrl';
+import useSymbolInjections, { getInjectionDisplayPrice } from 'src/view/shared/useSymbolInjections';
 
 // ----------------------------------------------------------------------
 // Styles
@@ -294,38 +295,27 @@ const SkeletonRow: React.FC = () => (
 // ----------------------------------------------------------------------
 // Market row
 // ----------------------------------------------------------------------
-const MarketRow: React.FC<{ pair: Pair; data?: LiveData; injectedPrice?: number | null }> = ({ pair, data, injectedPrice }) => {
+const MarketRow: React.FC<{ pair: Pair; data?: LiveData; injectedPrice?: number | null; injChange?: number | null }> = ({ pair, data, injectedPrice, injChange }) => {
   const wsPrice  = data?.price ?? null;
+  // During an injection the price + % change come from the animation, but they
+  // are rendered exactly like a normal live row (no special colour/label).
   const price    = injectedPrice ?? wsPrice;
-  const chp      = injectedPrice == null ? (data?.chp ?? null) : null; // hide % chg during animation
+  const chp      = injectedPrice != null ? (injChange ?? 0) : (data?.chp ?? null);
   const positive = (chp ?? 0) >= 0;
-  const isClosing = injectedPrice != null;
 
   return (
     <Link to={`/market/detail/${pair.symbol}`} className="row-link">
       <div className="currency-row">
         <div className="left-section">
           <PairIcon pair={pair} size="sm" />
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-            <span className="symbol-name">{pair.name}</span>
-            {isClosing && (
-              <span style={{ fontSize: 9, fontWeight: 700, color: '#ff8c00',
-                letterSpacing: '0.4px', lineHeight: 1 }}>● CLOSING</span>
-            )}
-          </div>
+          <span className="symbol-name">{pair.name}</span>
         </div>
         <div className="right-section">
-          <span className="price-value" style={{ color: isClosing ? '#ff8c00' : undefined }}>
-            {fmtPrice(price)}
+          <span className="price-value">{fmtPrice(price)}</span>
+          <span className={`change-percent ${positive ? 'green' : 'red'}`}>
+            <span className="arrow">{positive ? '▲' : '▼'}</span>
+            {fmtChp(chp)}
           </span>
-          {isClosing ? (
-            <span style={{ fontSize: 11, color: '#ff8c00', fontWeight: 600 }}>…</span>
-          ) : (
-            <span className={`change-percent ${positive ? 'green' : 'red'}`}>
-              <span className="arrow">{positive ? '▲' : '▼'}</span>
-              {fmtChp(chp)}
-            </span>
-          )}
         </div>
       </div>
     </Link>
@@ -336,31 +326,9 @@ const MarketRow: React.FC<{ pair: Pair; data?: LiveData; injectedPrice?: number 
 // Page
 // ----------------------------------------------------------------------
 const MarketPage: React.FC = () => {
-  const liveData = useMarketData();
-  const hasData  = Object.keys(liveData).length > 0;
-
-  // Poll injected prices (broadcast by CustomTradingChart during admin close animation)
-  const [injectedPrices, setInjectedPrices] = useState<Record<string, number>>({});
-  useEffect(() => {
-    const poll = () => {
-      const result: Record<string, number> = {};
-      try {
-        for (let i = 0; i < localStorage.length; i++) {
-          const key = localStorage.key(i);
-          if (!key?.startsWith('lcp_')) continue;
-          const sym = key.substring(4);
-          const raw = localStorage.getItem(key);
-          if (!raw) continue;
-          const data = JSON.parse(raw);
-          if (Date.now() - data.ts < 8_000) result[sym] = data.p;
-        }
-      } catch {}
-      setInjectedPrices(result);
-    };
-    poll();
-    const id = setInterval(poll, 2000);
-    return () => clearInterval(id);
-  }, []);
+  const liveData       = useMarketData();
+  const hasData        = Object.keys(liveData).length > 0;
+  const symbolInjections = useSymbolInjections(); // global, server-driven
 
   return (
     <>
@@ -374,16 +342,25 @@ const MarketPage: React.FC = () => {
 
         <div className="content-card">
           <div className="market-container">
-            {PAIRS.map(pair =>
-              !hasData
-                ? <SkeletonRow key={pair.symbol} />
-                : <MarketRow
-                    key={pair.symbol}
-                    pair={pair}
-                    data={liveData[pair.symbol]}
-                    injectedPrice={injectedPrices[pair.symbol] ?? null}
-                  />
-            )}
+            {PAIRS.map(pair => {
+              if (!hasData) return <SkeletonRow key={pair.symbol} />;
+              const inj  = symbolInjections[pair.symbol];
+              // Deterministic injected price + a synthetic % change vs the entry,
+              // both rendered like a normal live row.
+              const injP = inj ? getInjectionDisplayPrice(inj) : null;
+              const injChange = (inj && injP != null)
+                ? ((injP - inj.entryPrice) / inj.entryPrice) * 100
+                : null;
+              return (
+                <MarketRow
+                  key={pair.symbol}
+                  pair={pair}
+                  data={liveData[pair.symbol]}
+                  injectedPrice={injP}
+                  injChange={injChange}
+                />
+              );
+            })}
           </div>
         </div>
       </div>

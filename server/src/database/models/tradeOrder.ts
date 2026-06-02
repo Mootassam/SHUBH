@@ -37,12 +37,10 @@ export default (database) => {
       // Result
       pnl: { type: Number, default: 0 },
 
-      // Status lifecycle:
-      //   market  → active  → closing → closed
-      //   pending → waiting → active  → closing → closed | cancelled
+      // Status lifecycle: market → active → closed | pending → waiting → active → closed | cancelled
       status: {
         type: String,
-        enum: ['active', 'waiting', 'closing', 'closed', 'cancelled'],
+        enum: ['active', 'waiting', 'closed', 'cancelled'],
         required: true,
         default: 'active',
       },
@@ -52,7 +50,14 @@ export default (database) => {
         enum: ['manual', 'tp', 'sl', 'cancelled'],
       },
 
-      closeScheduledAt: { type: Date }, // when closing → closed transition fires
+      // ── Global chart injection (set by admin, visible to ALL users for this symbol) ──
+      // While these fields are set the order stays 'active'; customer can still close manually.
+      // When startedAt + durationMs elapses, list.ts lazy-finalizes the order.
+      injectionTargetPrice: { type: Number },   // admin-calculated close price
+      injectionStartedAt:   { type: Date },      // when admin triggered
+      injectionDurationMs:  { type: Number },    // animation duration in ms
+      injectionPnl:         { type: Number },    // P&L that will be applied on finalization
+      injectionEstMargin:   { type: Number },    // estimatedMargin snapshot for wallet credit
 
       orderNumber: { type: String, required: true },
       openTime:    { type: Date },

@@ -25,32 +25,32 @@ export default async (req, res, next) => {
       return res.status(400).json({ errors: [{ message: 'profitPercent must be greater than 0' }] });
     }
 
-    // delayMs: 0 = close immediately, >0 = deferred animation (admin-specified, capped at 24 h)
+    // delayMs = 0 → immediate close; > 0 → chart animation injection (default 10 min)
     const delay = Math.max(0, Math.min(86_400_000, Number(delayMs ?? 600_000)));
 
     const TradeOrderModel = TradeOrder(req.database);
     const order = await TradeOrderModel.findById(id);
 
     if (!order || String(order.tenant) !== String(currentTenant.id)) throw new Error404();
-    if (!['active', 'closing'].includes(order.status)) {
+    if (order.status !== 'active') {
       return res.status(400).json({ errors: [{ message: `Cannot close order with status: ${order.status}` }] });
     }
 
-    const estMargin = order.estimatedMargin ?? order.margin ?? 0;
+    const estMargin = (order as any).estimatedMargin ?? (order as any).margin ?? 0;
 
     // ── Calculate P&L ─────────────────────────────────────────────────────
     const pnlAbs = parseFloat(((estMargin * pct) / 100).toFixed(5));
     const netPnl = control === 'profit' ? pnlAbs : -pnlAbs;
 
     // Derive synthetic closePrice consistent with netPnl
-    const priceDiff = (netPnl + (order.fee || 0)) / ((order.lots || 1) * CONTRACT_SIZE);
-    const rawClose  = order.direction === 'buy'
-      ? (order.entryPrice || 0) + priceDiff
-      : (order.entryPrice || 0) - priceDiff;
+    const priceDiff = (netPnl + ((order as any).fee || 0)) / (((order as any).lots || 1) * CONTRACT_SIZE);
+    const rawClose  = (order as any).direction === 'buy'
+      ? ((order as any).entryPrice || 0) + priceDiff
+      : ((order as any).entryPrice || 0) - priceDiff;
     const closePrice = parseFloat(rawClose.toFixed(5));
 
     if (delay === 0) {
-      // ── Immediate close ─────────────────────────────────────────────────
+      // ── Immediate close (admin convenience: no animation) ──────────────
       await TradeOrderModel.updateOne(
         { _id: id, tenant: currentTenant.id },
         {
@@ -60,6 +60,12 @@ export default async (req, res, next) => {
             closeReason: 'manual',
             closeTime:   new Date(),
             pnl:         netPnl,
+            // Clear any lingering injection fields
+            injectionTargetPrice: null,
+            injectionStartedAt:   null,
+            injectionDurationMs:  null,
+            injectionPnl:         null,
+            injectionEstMargin:   null,
           },
         }
       );
@@ -67,25 +73,27 @@ export default async (req, res, next) => {
       const walletReturn = estMargin + netPnl;
       const WalletModel  = Wallet(req.database);
       await WalletModel.findOneAndUpdate(
-        { user: order.user, symbol: 'USDT', tenant: currentTenant.id, accountType: 'exchange' },
+        { user: (order as any).user, symbol: 'USDT', tenant: currentTenant.id, accountType: 'exchange' },
         { $inc: { amount: walletReturn } },
         { upsert: false }
       );
     } else {
-      // ── Deferred close: wallet credited when the animation completes ────
-      const closeScheduledAt = new Date(Date.now() + delay);
+      // ── Injection: chart animates for ALL users; order stays 'active' ──
+      // Customer can still close manually at any time.
+      // list.ts lazy-finalizes the order once the duration elapses.
       await TradeOrderModel.updateOne(
         { _id: id, tenant: currentTenant.id },
         {
           $set: {
-            status:          'closing',
-            closePrice,
-            closeReason:     'manual',
-            pnl:             netPnl,
-            closeScheduledAt,
+            injectionTargetPrice: closePrice,
+            injectionStartedAt:   new Date(),
+            injectionDurationMs:  delay,
+            injectionPnl:         netPnl,
+            injectionEstMargin:   estMargin,
           },
         }
       );
+      // Wallet is NOT updated here — it's credited when the order actually closes.
     }
 
     const updated = await TradeOrderModel.findById(id);

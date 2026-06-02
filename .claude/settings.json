@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//d/SHUBH/graborders/**)",
+      "Bash(npx tsc *)",
+      "Bash(cd /d/SHUBH/admin && npx tsc --noEmit -p tsconfig.json 2>&1 | grep -E \"FuturesListTable\" | head -30)",
+      "Read(//d/SHUBH/admin/**)",
+      "Bash(cd /d/SHUBH/server && npx tsc --noEmit 2>&1 | grep -E \"tradeOrder|symbolInjections|adminClose|list\\\\.ts|close\\\\.ts\" | head -30)",
+      "Read(//d/SHUBH/server/**)"
+    ]
+  }
+}

@@ -13,6 +13,6 @@ RUN npm install
 ENV BACKEND_URL="http://159.198.70.147:8081/api"
 
 # Expose your app port
-EXPOSE 8085
+EXPOSE 8081
 
 CMD ["npm", "start"]
