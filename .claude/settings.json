@@ -6,7 +6,29 @@
       "Bash(cd /d/SHUBH/admin && npx tsc --noEmit -p tsconfig.json 2>&1 | grep -E \"FuturesListTable\" | head -30)",
       "Read(//d/SHUBH/admin/**)",
       "Bash(cd /d/SHUBH/server && npx tsc --noEmit 2>&1 | grep -E \"tradeOrder|symbolInjections|adminClose|list\\\\.ts|close\\\\.ts\" | head -30)",
-      "Read(//d/SHUBH/server/**)"
+      "Read(//d/SHUBH/server/**)",
+      "Bash(cd /d/SHUBH/PC)",
+      "Bash(ls -la *.html)",
+      "Bash(ls -la src/view)",
+      "Bash(ls src *)",
+      "Read(//d/SHUBH/**)",
+      "Bash(ls graborders/src/view/shared/routes)",
+      "Bash(cat PC/src/main.tsx)",
+      "Bash(cat PC/index.html)",
+      "Bash(cd /d/SHUBH/PC && echo \"=== tsconfig ===\" && cat tsconfig.json && echo \"=== vite alias ===\" && cat vite.config.ts)",
+      "Read(//d/SHUBH/PC/**)",
+      "Bash(cp -r graborders/src/view/. PC/src/view/)",
+      "Bash(ls src/view/shared/pairConfig* src/view/shared/wsUrl* src/view/shared/useSymbolInjections* src/view/pages/Market/CustomTradingChart.tsx src/view/shared/modals/CoinSelectorSidebar*)",
+      "Bash(timeout 180 npx vite build)",
+      "Bash(ls node_modules 2>/dev/null | head -3 || echo \"NO node_modules in PC\"; echo \"=== graborders has node_modules? ===\"; ls /d/SHUBH/graborders/node_modules 2>/dev/null | head -1 || echo \"none\")",
+      "Read(//d/SHUBH/graborders/node_modules/**)",
+      "Bash(cd /d/SHUBH/PC && npx tsc --noEmit -p tsconfig.json 2>&1 | grep -E \"view/pages/Pc/\" | head -20; echo \"=== done \\(empty = clean\\) ===\")",
+      "Bash(cd /d/SHUBH/PC && grep -n \"i18n\\(\" src/view/pages/Pc/PcTrading.tsx | head; echo \"=== tsc ===\"; npx tsc --noEmit -p tsconfig.json 2>&1 | grep -E \"view/pages/Pc/\" | head)",
+      "Bash(cd /d/SHUBH/PC && grep -nE \"doDemoLogin|doClearErrorMessage\" src/modules/auth/authActions.tsx | head)",
+      "Bash(cd /d/SHUBH/PC && grep -nE \"selectKycStatus\" src/modules/kyc/list/kycListSelectors.tsx | head; echo \"=== kyc doFetch ===\"; grep -nE \"doFetch\" src/modules/kyc/list/kycListActions.tsx | head -3; echo \"=== proof / bindAccount / KycStatusPage ===\"; ls src/view/pages/proof/proof.tsx src/view/pages/bindAccount/BindAccount.tsx src/view/pages/kycStatus/KycStatusPage.tsx 2>/dev/null)",
+      "Bash(cd /d/SHUBH/PC && echo \"=== Lazyroutes ===\"; cat src/view/shared/Lazyroutes.tsx 2>/dev/null | head -30; echo \"=== history dep ===\"; grep -n '\"history\"' package.json; ls node_modules/history 2>/dev/null && echo \"history installed\" || echo \"history NOT in node_modules \\(expected, none installed\\)\"; echo \"=== react-router-dom version ===\"; grep -n \"react-router\" package.json)",
+      "Bash(cd /d/SHUBH/PC && npx tsc --noEmit -p tsconfig.json 2>&1 | grep -E \"view/pages/Pc/\" | head; echo \"=== done \\(empty = clean\\) ===\")",
+      "Bash(cd /d/SHUBH/PC && grep -rnE \"getHistory\\\\\\(\\\\\\)\\\\.\\(push|replace|go\\)\" src/modules | head -15; echo \"=== getHistory export ===\"; grep -nE \"export.*getHistory|getHistory =\" src/modules/store.tsx | head)"
     ]
   }
 }
