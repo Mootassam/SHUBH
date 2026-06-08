@@ -10,6 +10,7 @@ import routesConfig from 'src/view/shared/routes';
 import lazyRouter from 'src/view/shared/Lazyroutes';
 import LoadingComponent from 'src/view/shared/LoadingComponent';
 import { getHistory } from 'src/modules/store';
+import { i18n } from '../../../i18n';
 
 interface Props { onClose: () => void; }
 
@@ -18,16 +19,17 @@ interface MenuItem { icon: string; name: string; path: string; requiresKyc?: boo
 // Menu items mirror the mobile Profile page. KYC verification + Bind Account are
 // always available; the rest require a verified KYC (and are disabled for demo).
 const ITEMS: MenuItem[] = [
-  { icon: 'fas fa-id-card',         name: 'KYC Verification', path: '/proof', lockWhenVerified: true },
-  { icon: 'fas fa-link',            name: 'Bind Account',     path: '/bind-account' },
-  { icon: 'fas fa-list',            name: 'Orders',           path: '/ordersPage' },
-  { icon: 'fas fa-money-bill',      name: 'Deposit',          path: '/deposit',     requiresKyc: true },
-  { icon: 'fas fa-arrow-up',        name: 'Withdraw',         path: '/Withdraw',    requiresKyc: true },
-  { icon: 'fas fa-shield-alt',      name: 'Password',         path: '/typepassword', requiresKyc: true },
-  { icon: 'fas fa-file-alt',        name: 'History',          path: '/history',     requiresKyc: true },
-  { icon: 'fas fa-bell',            name: 'Notifications',    path: '/notification' },
-  { icon: 'fas fa-building',        name: 'About Us',         path: '/about' },
-  { icon: 'fas fa-question-circle', name: 'Help',             path: '/support' },
+  { icon: 'fas fa-id-card',         name: i18n('pc.kyc'),           path: '/proof', lockWhenVerified: true },
+  { icon: 'fas fa-link',            name: i18n('pc.bindAccount'),   path: '/bind-account' },
+  { icon: 'fas fa-list',            name: i18n('pc.orders'),        path: '/ordersPage' },
+  { icon: 'fas fa-money-bill',      name: i18n('pc.deposit'),       path: '/deposit',     requiresKyc: true },
+  { icon: 'fas fa-arrow-up',        name: i18n('pc.withdraw'),      path: '/Withdraw',    requiresKyc: true },
+  { icon: 'fas fa-shield-alt',      name: i18n('pc.password'),      path: '/typepassword', requiresKyc: true },
+  { icon: 'fas fa-file-alt',        name: i18n('pc.history'),       path: '/history',     requiresKyc: true },
+  { icon: 'fas fa-bell',            name: i18n('pc.notifications'), path: '/notification' },
+  { icon: 'fas fa-headset',         name: i18n('pc.onlineService'), path: '/online-service' },
+  { icon: 'fas fa-building',        name: i18n('pc.aboutUs'),       path: '/about' },
+  { icon: 'fas fa-question-circle', name: i18n('pc.help'),          path: '/support' },
 ];
 
 // Build the in-modal route table from the app's route config so every internal
@@ -116,9 +118,9 @@ export default function PcProfileModal({ onClose }: Props) {
   }, [items, base.path]);
 
   const kycLabel =
-    kycStatus === 'success' ? 'Verified'
-    : kycStatus === 'pending' ? 'Pending review'
-    : 'Not verified';
+    kycStatus === 'success' ? i18n('pc.verified')
+    : kycStatus === 'pending' ? i18n('pc.pendingReview')
+    : i18n('pc.notVerified');
   const kycColor =
     kycStatus === 'success' ? '#10b981'
     : kycStatus === 'pending' ? '#f59e0b'
@@ -145,8 +147,8 @@ export default function PcProfileModal({ onClose }: Props) {
           {!isKycVerified && (
             <div className="pc-kyc-hint">
               {isDemo
-                ? 'Demo accounts cannot use these features.'
-                : 'Complete KYC verification to unlock all features.'}
+                ? i18n('pc.demoNoFeatures')
+                : i18n('pc.completeKyc')}
             </div>
           )}
 
@@ -163,7 +165,7 @@ export default function PcProfileModal({ onClose }: Props) {
               </button>
             ))}
             <button className="pc-profile-logout" onClick={() => { dispatch(authActions.doSignout()); onClose(); }}>
-              <i className="fas fa-sign-out-alt" /> <span>Logout</span>
+              <i className="fas fa-sign-out-alt" /> <span>{i18n('pc.logout')}</span>
             </button>
           </nav>
         </aside>
@@ -174,7 +176,7 @@ export default function PcProfileModal({ onClose }: Props) {
           {canBack && (
             <div className="pc-nav-bar">
               <button className="pc-nav-back" onClick={() => history.goBack()}>
-                <span className="pc-nav-back-ico">←</span> Back
+                <span className="pc-nav-back-ico">←</span> {i18n('pc.back')}
               </button>
             </div>
           )}

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import authActions from 'src/modules/auth/authActions';
 import authSelectors from 'src/modules/auth/authSelectors';
+import { i18n } from '../../../i18n';
 
 interface Props {
   initialMode?: 'login' | 'register';
@@ -59,17 +60,17 @@ export default function PcAuthModal({ initialMode = 'login', onClose }: Props) {
   const submitLogin = (e: React.FormEvent) => {
     e.preventDefault();
     setLocalError(null);
-    if (!email || !password) { setLocalError('Email and password are required.'); return; }
+    if (!email || !password) { setLocalError(i18n('pc.emailPwRequired')); return; }
     dispatch(authActions.doSigninWithEmailAndPassword(email, password, rememberMe));
   };
 
   const submitRegister = (e: React.FormEvent) => {
     e.preventDefault();
     setLocalError(null);
-    if (!email || !password || !phone) { setLocalError('Please fill all required fields.'); return; }
-    if (password.length < 8) { setLocalError('Password must be at least 8 characters.'); return; }
-    if (password !== confirmPassword) { setLocalError('Passwords do not match.'); return; }
-    if (captcha !== captchaText) { setLocalError('Captcha does not match.'); refreshCaptcha(); return; }
+    if (!email || !password || !phone) { setLocalError(i18n('pc.fillRequired')); return; }
+    if (password.length < 8) { setLocalError(i18n('pc.pwMin')); return; }
+    if (password !== confirmPassword) { setLocalError(i18n('pc.pwMismatch')); return; }
+    if (captcha !== captchaText) { setLocalError(i18n('pc.captchaMismatch')); refreshCaptcha(); return; }
     dispatch(authActions.doRegisterEmailAndPassword(email, password, phone));
   };
 
@@ -83,66 +84,66 @@ export default function PcAuthModal({ initialMode = 'login', onClose }: Props) {
         <button className="pc-modal-x" onClick={onClose}>✕</button>
 
         <div className="pc-auth-tabs">
-          <button className={mode === 'login' ? 'active' : ''} onClick={() => switchMode('login')}>Login</button>
-          <button className={mode === 'register' ? 'active' : ''} onClick={() => switchMode('register')}>Register</button>
+          <button className={mode === 'login' ? 'active' : ''} onClick={() => switchMode('login')}>{i18n('pc.login')}</button>
+          <button className={mode === 'register' ? 'active' : ''} onClick={() => switchMode('register')}>{i18n('pc.register')}</button>
         </div>
 
         {shownError && <div className="pc-auth-error">{shownError}</div>}
 
         {mode === 'login' ? (
           <form className="pc-auth-form" onSubmit={submitLogin}>
-            <label>Email</label>
+            <label>{i18n('pc.email')}</label>
             <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" autoComplete="email" autoFocus />
 
-            <label>Password</label>
+            <label>{i18n('pc.password')}</label>
             <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" autoComplete="current-password" />
 
             <div className="pc-auth-remember">
-              <label><input type="checkbox" checked={rememberMe} onChange={(e) => setRemember(e.target.checked)} /> Remember me</label>
+              <label><input type="checkbox" checked={rememberMe} onChange={(e) => setRemember(e.target.checked)} /> {i18n('pc.rememberMe')}</label>
             </div>
 
             <button type="submit" className="pc-auth-submit" disabled={loading}>
-              {loading ? <><i className="fas fa-spinner fa-spin" /> Signing in…</> : 'Login'}
+              {loading ? <><i className="fas fa-spinner fa-spin" /> {i18n('pc.signingIn')}</> : i18n('pc.login')}
             </button>
 
             <button type="button" className="pc-auth-demo" onClick={onDemoLogin} disabled={loading}>
-              {loading ? <><i className="fas fa-spinner fa-spin" /> Loading…</> : 'Login to Demo Account'}
+              {loading ? <><i className="fas fa-spinner fa-spin" /> {i18n('pc.loading')}</> : i18n('pc.demoLogin')}
             </button>
           </form>
         ) : (
           <form className="pc-auth-form" onSubmit={submitRegister}>
-            <label>Email</label>
+            <label>{i18n('pc.email')}</label>
             <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" autoComplete="email" autoFocus />
 
-            <label>Phone Number</label>
-            <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Phone number" autoComplete="tel" />
+            <label>{i18n('pc.phone')}</label>
+            <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder={i18n('pc.phone')} autoComplete="tel" />
 
-            <label>Captcha</label>
+            <label>{i18n('pc.captcha')}</label>
             <div className="pc-captcha-wrap">
-              <div className="pc-captcha-display" onClick={refreshCaptcha} title="Click to refresh">
+              <div className="pc-captcha-display" onClick={refreshCaptcha} title="↻">
                 <span className="pc-captcha-text">{captchaText}</span>
                 <span className="pc-captcha-refresh"><i className="fas fa-sync-alt" /></span>
               </div>
-              <input type="text" value={captcha} onChange={(e) => setCaptcha(e.target.value)} placeholder="Enter captcha" />
+              <input type="text" value={captcha} onChange={(e) => setCaptcha(e.target.value)} placeholder={i18n('pc.enterCaptcha')} />
             </div>
 
-            <label>Password</label>
-            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="At least 8 characters" autoComplete="new-password" />
+            <label>{i18n('pc.password')}</label>
+            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder={i18n('pc.passwordHint')} autoComplete="new-password" />
 
-            <label>Confirm Password</label>
-            <input type="password" value={confirmPassword} onChange={(e) => setConfirm(e.target.value)} placeholder="Re-enter password" autoComplete="new-password" />
+            <label>{i18n('pc.confirmPassword')}</label>
+            <input type="password" value={confirmPassword} onChange={(e) => setConfirm(e.target.value)} placeholder={i18n('pc.reenterPassword')} autoComplete="new-password" />
 
             <button type="submit" className="pc-auth-submit" disabled={loading}>
-              {loading ? <><i className="fas fa-spinner fa-spin" /> Creating account…</> : 'Create account'}
+              {loading ? <><i className="fas fa-spinner fa-spin" /> {i18n('pc.creatingAccount')}</> : i18n('pc.createAccount')}
             </button>
           </form>
         )}
 
         <div className="pc-auth-switch">
           {mode === 'login' ? (
-            <span>No account? <a onClick={() => switchMode('register')}>Register</a></span>
+            <span>{i18n('pc.noAccount')} <a onClick={() => switchMode('register')}>{i18n('pc.register')}</a></span>
           ) : (
-            <span>Have an account? <a onClick={() => switchMode('login')}>Login</a></span>
+            <span>{i18n('pc.haveAccount')} <a onClick={() => switchMode('login')}>{i18n('pc.login')}</a></span>
           )}
         </div>
       </div>

@@ -80,6 +80,15 @@ function fmtDate(iso?: string): string {
   } catch { return iso; }
 }
 
+function fmtDateTime(iso?: string): string {
+  if (!iso) return '—';
+  try {
+    const d = new Date(iso);
+    const p = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+  } catch { return iso; }
+}
+
 function calcPnl(order: TradeOrder, livePrice: number): number {
   if (!order.entryPrice) return 0;
   const diff = order.direction === 'buy'
@@ -100,6 +109,7 @@ const OrdersPage: React.FC = () => {
   const [closingId, setClosingId]     = useState<string | null>(null);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
   const [detailOrder, setDetailOrder]   = useState<TradeOrder | null>(null);
+  const [expandedId, setExpandedId]     = useState<string | null>(null);
 
   const [livePrices, setLivePrices] = useState<Record<string, number>>({});
   // Global chart injections (server-driven, all users)
@@ -534,12 +544,59 @@ const OrdersPage: React.FC = () => {
             historyOrders.length === 0 ? (
               <div className="op-empty">No order history yet</div>
             ) : historyOrders.map(order => {
-              const oid  = order.id || order._id;
-              const pnl  = order.pnl ?? 0;
-              const pair = getPairInfo(order.symbol) ?? { symbol: order.symbol, name: order.symbol };
+              const oid        = order.id || order._id;
+              const pnl        = order.pnl ?? 0;
+              const pair       = getPairInfo(order.symbol) ?? { symbol: order.symbol, name: order.symbol };
+              const isExpanded = expandedId === oid;
+              const margin     = (order as any).estimatedMargin ?? order.margin ?? 0;
+
+              // ── Expanded inline detail (like the shared screenshot) ──
+              if (isExpanded) {
+                return (
+                  <div key={oid} className="op-detail-inline">
+                    <div className="op-di-head">
+                      <span className="op-di-title">Order Details</span>
+                      <button className="op-di-x" onClick={() => setExpandedId(null)}>✕</button>
+                    </div>
+
+                    <div className="op-di-body">
+                      <div className="op-di-left">
+                        <div className="op-di-sym">{order.symbol}</div>
+                        <div className="op-di-prices">
+                          <span className="op-di-entry">{fmtPrice(order.entryPrice)}</span>
+                          {order.closePrice != null && (
+                            <>
+                              <span className="op-di-arrow"> -&gt; </span>
+                              <span className="op-di-close">{fmtPrice(order.closePrice)}</span>
+                            </>
+                          )}
+                        </div>
+                        <div className="op-di-meta">Margin: {Number(margin).toFixed(3)}</div>
+                        <div className="op-di-meta">Handling fee: {Number(order.fee ?? 0).toFixed(6)}</div>
+                        <div className="op-di-meta">Orders ID #{order.orderNumber}</div>
+                        <div className="op-di-meta">{fmtDateTime(order.openTime ?? order.createdAt)}</div>
+                        <div className="op-di-meta">{fmtDateTime(order.closeTime)}</div>
+                      </div>
+
+                      <div className="op-di-right">
+                        <div className="op-di-badges">
+                          <span className={`op-di-dir ${order.direction}`}>{order.direction === 'buy' ? 'Buy' : 'Sell'}</span>
+                          <span className="op-di-lots">{order.lots} Lots</span>
+                        </div>
+                        {order.status !== 'cancelled' && (
+                          <div className={`op-di-pnl ${pnl >= 0 ? 'green' : 'red'}`}>{Math.abs(pnl).toFixed(2)}</div>
+                        )}
+                        {order.status === 'cancelled' && (
+                          <div className="op-tag op-tag-cancelled">Cancelled</div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
 
               return (
-                <div key={oid} className="op-history-card" onClick={() => setDetailOrder(order)}>
+                <div key={oid} className="op-history-card" onClick={() => setExpandedId(oid)}>
                   <div className="op-order-top">
                     <div className="op-order-left">
                       <PairIcon pair={pair as any} size="sm" />
@@ -744,6 +801,42 @@ const CSS = `
     transition: background 0.15s, transform 0.1s;
   }
   .op-history-card:hover { background: #f0f2f5; transform: translateY(-1px); }
+
+  /* ── Inline expanded detail (matches the order-details card) ── */
+  .op-detail-inline {
+    background: #fff;
+    border: 1px solid #e7eaee;
+    border-radius: 12px;
+    padding: 14px 16px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+  }
+  .op-di-head {
+    display: flex; align-items: center; justify-content: space-between;
+    border-bottom: 1px solid #f0f2f5; padding-bottom: 10px; margin-bottom: 12px;
+  }
+  .op-di-title { font-size: 16px; font-weight: 700; color: #1a1a1a; }
+  .op-di-x {
+    background: none; border: none; font-size: 16px; color: #999; cursor: pointer;
+    width: 26px; height: 26px; border-radius: 6px;
+  }
+  .op-di-x:hover { background: #f0f2f5; color: #333; }
+  .op-di-body { display: flex; justify-content: space-between; gap: 12px; }
+  .op-di-left { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+  .op-di-sym { font-size: 14px; font-weight: 600; color: #1a1a1a; }
+  .op-di-prices { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+  .op-di-entry { color: #1a1a1a; }
+  .op-di-arrow { color: #999; }
+  .op-di-close { color: #1a1a1a; }
+  .op-di-meta { font-size: 12px; color: #9aa0a6; line-height: 1.6; }
+  .op-di-right { display: flex; flex-direction: column; align-items: flex-end; justify-content: space-between; gap: 10px; }
+  .op-di-badges { display: flex; align-items: center; gap: 6px; }
+  .op-di-dir { font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 6px; }
+  .op-di-dir.buy  { background: #106cf5; color: #fff; }
+  .op-di-dir.sell { background: #ff4d4d; color: #fff; }
+  .op-di-lots { font-size: 12px; font-weight: 600; color: #106cf5; background: #e8f0ff; padding: 3px 8px; border-radius: 6px; }
+  .op-di-pnl { font-size: 26px; font-weight: 800; }
+  .op-di-pnl.green { color: #106cf5; }
+  .op-di-pnl.red   { color: #ff4d4d; }
 
   /* Top row */
   .op-order-top  { display: flex; justify-content: space-between; align-items: center; }

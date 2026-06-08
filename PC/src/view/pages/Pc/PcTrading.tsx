@@ -8,7 +8,8 @@ import { PAIRS, getPairInfo, PairIcon } from 'src/view/shared/pairConfig';
 import { getTvWsUrl } from 'src/view/shared/wsUrl';
 import CustomTradingChart, { PriceInjection } from 'src/view/pages/Market/CustomTradingChart';
 import useSymbolInjections from 'src/view/shared/useSymbolInjections';
-import { getLanguageCode, setLanguageCode } from '../../../i18n';
+import { getLanguageCode, getLanguages, i18n } from '../../../i18n';
+import layoutActions from 'src/modules/layout/layoutActions';
 import PcAuthModal from './PcAuthModal';
 import PcProfileModal from './PcProfileModal';
 import { PC_CSS } from './pcStyles';
@@ -47,6 +48,7 @@ export default function PcTrading() {
   // ── Trade form ──────────────────────────────────────────────────────────
   const [multiplier, setMultiplier]       = useState(100);
   const [lots, setLots]                   = useState(0.01);
+  const [lotsStr, setLotsStr]             = useState('0.01'); // editable text mirror
   const [useStopLoss, setUseStopLoss]     = useState(false);
   const [stopLossValue, setStopLossValue] = useState(0);
   const [useTakeProfit, setUseTakeProfit] = useState(false);
@@ -182,6 +184,13 @@ export default function PcTrading() {
   const marginStr = estimatedMargin >= 100 ? estimatedMargin.toFixed(3) : estimatedMargin.toFixed(5);
   const insufficient = currentUser ? USDBalance < estimatedMargin && estimatedMargin > 0 : false;
 
+  // Estimated handling fee + "Each Lots" label (mirrors the futures panel)
+  const handlingFee = useMemo(() => {
+    const notional = (realPrice ?? 0) * lots * 100;
+    return (notional * 0.00001).toFixed(6);
+  }, [realPrice, lots]);
+  const eachLotValue = `1 Lots = 100 ${selectedCoin}`;
+
   // ── Market list (filtered) ───────────────────────────────────────────────
   const filtered = useMemo(() => {
     return PAIRS.filter(p => {
@@ -219,7 +228,7 @@ export default function PcTrading() {
       setUSDBalance(prev => Math.max(0, prev - estimatedMargin));
       dispatch(assetsListActions.doFetch());
       setConfirm(null);
-      setToast(`${confirm === 'buy' ? 'Buy' : 'Sell'} order placed on ${selectedCoin}`);
+      setToast(`${confirm === 'buy' ? i18n('pc.buy') : i18n('pc.sell')} — ${i18n('pc.orderPlaced')} ${selectedCoin}`);
       setTimeout(() => setToast(null), 3500);
     } catch (e: any) {
       alert(e?.response?.data?.errors?.[0]?.message || 'Failed to place order');
@@ -228,7 +237,9 @@ export default function PcTrading() {
     }
   };
 
-  const changeLang = (code: string) => { setLang(code); setLanguageCode(code); };
+  // Switch language for the WHOLE app: persist + reload so i18n re-initializes
+  // and every translated string updates (same mechanism as the mobile app).
+  const changeLang = (code: string) => { setLang(code); layoutActions.doChangeLanguage(code); };
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
@@ -247,22 +258,21 @@ export default function PcTrading() {
 
         <div className="pc-header-right">
           <select className="pc-lang" value={lang} onChange={(e) => changeLang(e.target.value)}>
-            <option value="en">English</option>
-            <option value="es">Español</option>
-            <option value="fr">Français</option>
-            <option value="de">Deutsch</option>
+            {getLanguages().map((l: any) => (
+              <option key={l.id} value={l.id}>{l.label}</option>
+            ))}
           </select>
 
           {currentUser ? (
             <>
               <button className="pc-btn-ghost" onClick={() => setProfileOpen(true)}>
-                <i className="fas fa-user" /> Profile
+                <i className="fas fa-user" /> {i18n('pc.profile')}
               </button>
             </>
           ) : (
             <>
-              <button className="pc-btn-ghost" onClick={() => setAuthModal('login')}>Login</button>
-              <button className="pc-btn-primary" onClick={() => setAuthModal('register')}>Register</button>
+              <button className="pc-btn-ghost" onClick={() => setAuthModal('login')}>{i18n('pc.login')}</button>
+              <button className="pc-btn-primary" onClick={() => setAuthModal('register')}>{i18n('pc.register')}</button>
             </>
           )}
         </div>
@@ -274,11 +284,13 @@ export default function PcTrading() {
         <aside className="pc-left">
           <div className="pc-search">
             <i className="fas fa-search" />
-            <input placeholder="Search markets…" value={search} onChange={(e) => setSearch(e.target.value)} />
+            <input placeholder={i18n('pc.searchMarkets')} value={search} onChange={(e) => setSearch(e.target.value)} />
           </div>
           <div className="pc-filter">
             <select value={filter} onChange={(e) => setFilter(e.target.value)}>
-              {['All', 'Forex', 'Crypto', 'Metals', 'Indices'].map(f => <option key={f}>{f}</option>)}
+              {[['All','pc.all'],['Forex','pc.forex'],['Crypto','pc.crypto'],['Metals','pc.metals'],['Indices','pc.indices']].map(([val, key]) => (
+                <option key={val} value={val}>{i18n(key)}</option>
+              ))}
             </select>
           </div>
           <div className="pc-market-list">
@@ -341,54 +353,97 @@ export default function PcTrading() {
           </div>
         </section>
 
-        {/* RIGHT: funds + trade options */}
+        {/* RIGHT: funds + trade options (matches futures order panel) */}
         <aside className="pc-right">
+          {/* Available funds */}
           <div className="pc-funds">
-            <div>
-              <div className="pc-funds-label">Available Funds</div>
-              <div className="pc-funds-amount">{currentUser ? `$${USDBalance.toFixed(2)}` : '****'}</div>
-            </div>
-            <div className="pc-funds-icon">💳</div>
+            <div className="pc-funds-label">{i18n('pc.availableFunds')}</div>
+            <div className="pc-funds-amount">{currentUser ? `$${USDBalance.toFixed(2)}` : '----'}</div>
           </div>
 
-          {/* ===== Trade options (from futures page) ===== */}
           <div className="pc-trade-panel">
-            <div className="pc-trade-row">
-              <label>Multiplier</label>
-              <select value={multiplier} onChange={(e) => setMultiplier(+e.target.value)}>
-                {[100, 200, 300, 400, 500].map(v => <option key={v} value={v}>{v}×</option>)}
-              </select>
-            </div>
+            {/* Symbol + price */}
+            <div className="pc-tp-symbol">{selectedCoin}</div>
+            <div className="pc-tp-price">{fmtPrice(realPrice)}</div>
 
-            <div className="pc-trade-row">
-              <label><input type="checkbox" checked={useStopLoss} onChange={(e) => { setUseStopLoss(e.target.checked); setStopLossValue(e.target.checked && realPrice ? realPrice : 0); }} /> Stop Loss</label>
+            {/* Order type */}
+            <select className="pc-tp-select">
+              <option>{i18n('pc.marketPrice')}</option>
+            </select>
+
+            {/* Multiplier */}
+            <div className="pc-tp-label">{i18n('pc.multiplier')}</div>
+            <select className="pc-tp-select" value={multiplier} onChange={(e) => setMultiplier(+e.target.value)}>
+              {[100, 200, 300, 400, 500].map(v => <option key={v} value={v}>{v}</option>)}
+            </select>
+
+            {/* Set Loss */}
+            <div className="pc-tp-toggle-row">
+              <span>{i18n('pc.setLoss')}</span>
+              <label className="pc-switch">
+                <input type="checkbox" checked={useStopLoss} onChange={(e) => { setUseStopLoss(e.target.checked); setStopLossValue(e.target.checked && realPrice ? realPrice : 0); }} />
+                <span className="pc-slider" />
+              </label>
+            </div>
+            <div className="pc-stepper full">
+              <button onClick={() => useStopLoss && setStopLossValue(v => Math.max(0, +(v - 0.01).toFixed(5)))} disabled={!useStopLoss}>−</button>
               <input type="number" step="any" min="0" disabled={!useStopLoss} value={stopLossValue} onChange={(e) => setStopLossValue(parseFloat(e.target.value) || 0)} />
+              <button onClick={() => useStopLoss && setStopLossValue(v => +(v + 0.01).toFixed(5))} disabled={!useStopLoss}>+</button>
             </div>
 
-            <div className="pc-trade-row">
-              <label><input type="checkbox" checked={useTakeProfit} onChange={(e) => { setUseTakeProfit(e.target.checked); setTakeProfitValue(e.target.checked && realPrice ? realPrice : 0); }} /> Take Profit</label>
+            {/* Take Profit */}
+            <div className="pc-tp-toggle-row">
+              <span>{i18n('pc.takeProfit')}</span>
+              <label className="pc-switch">
+                <input type="checkbox" checked={useTakeProfit} onChange={(e) => { setUseTakeProfit(e.target.checked); setTakeProfitValue(e.target.checked && realPrice ? realPrice : 0); }} />
+                <span className="pc-slider" />
+              </label>
+            </div>
+            <div className="pc-stepper full">
+              <button onClick={() => useTakeProfit && setTakeProfitValue(v => Math.max(0, +(v - 0.01).toFixed(5)))} disabled={!useTakeProfit}>−</button>
               <input type="number" step="any" min="0" disabled={!useTakeProfit} value={takeProfitValue} onChange={(e) => setTakeProfitValue(parseFloat(e.target.value) || 0)} />
+              <button onClick={() => useTakeProfit && setTakeProfitValue(v => +(v + 0.01).toFixed(5))} disabled={!useTakeProfit}>+</button>
             </div>
 
-            <div className="pc-trade-row">
-              <label>Lots (0.01)</label>
-              <div className="pc-stepper">
-                <button onClick={() => setLots(v => Math.max(0.01, +(v - 0.01).toFixed(2)))}>−</button>
-                <input type="number" step="0.01" min="0.01" value={lots} onChange={(e) => { const v = parseFloat(e.target.value); setLots(isNaN(v) || v < 0.01 ? 0.01 : Math.round(v * 100) / 100); }} />
-                <button onClick={() => setLots(v => +(v + 0.01).toFixed(2))}>+</button>
-              </div>
+            {/* Lots */}
+            <div className="pc-tp-label">{i18n('pc.lots')}</div>
+            <div className="pc-stepper full">
+              <button onClick={() => { const nv = Math.max(0.01, +(lots - 0.01).toFixed(2)); setLots(nv); setLotsStr(String(nv)); }}>−</button>
+              <input
+                type="text"
+                inputMode="decimal"
+                value={lotsStr}
+                onChange={(e) => {
+                  // Allow free editing (digits + one dot); update numeric lots only when valid
+                  const raw = e.target.value.replace(/[^0-9.]/g, '');
+                  setLotsStr(raw);
+                  const v = parseFloat(raw);
+                  if (!isNaN(v) && v > 0) setLots(v);
+                }}
+                onBlur={() => {
+                  // Clamp/normalize when the user finishes editing
+                  let v = parseFloat(lotsStr);
+                  if (isNaN(v) || v < 0.01) v = 0.01;
+                  v = Math.round(v * 100) / 100;
+                  setLots(v); setLotsStr(String(v));
+                }}
+              />
+              <button onClick={() => { const nv = +(lots + 0.01).toFixed(2); setLots(nv); setLotsStr(String(nv)); }}>+</button>
             </div>
 
-            <div className="pc-trade-info">
-              <span>Estimated Margin</span>
-              <strong style={{ color: insufficient ? '#ef4444' : '#1a1d23' }}>${marginStr}</strong>
+            {/* Info rows */}
+            <div className="pc-tp-info">
+              <div className="pc-tp-info-row"><span>{i18n('pc.eachLots')}</span><b>{eachLotValue}</b></div>
+              <div className="pc-tp-info-row"><span>{i18n('pc.handlingFee')}</span><b>{handlingFee}</b></div>
+              <div className="pc-tp-info-row"><span>{i18n('pc.estimatedMargin')}</span><b style={{ color: insufficient ? '#ef4444' : '#1a1d23' }}>{marginStr}</b></div>
             </div>
 
-            {insufficient && <div className="pc-insufficient">⚠ Insufficient balance. Need ${marginStr}, you have ${USDBalance.toFixed(2)}.</div>}
+            {insufficient && <div className="pc-insufficient">⚠ {i18n('pc.insufficient')} (${marginStr})</div>}
 
-            <div className="pc-trade-actions">
-              <button className="pc-buy" disabled={realPrice == null || insufficient} onClick={() => openConfirm('buy')}>▲ Buy Up</button>
-              <button className="pc-sell" disabled={realPrice == null || insufficient} onClick={() => openConfirm('sell')}>▼ Buy Down</button>
+            {/* Buy / Sell */}
+            <div className="pc-tp-actions">
+              <button className="pc-buy2" disabled={realPrice == null || insufficient} onClick={() => openConfirm('buy')}>{i18n('pc.buy')}</button>
+              <button className="pc-sell2" disabled={realPrice == null || insufficient} onClick={() => openConfirm('sell')}>{i18n('pc.sell')}</button>
             </div>
           </div>
         </aside>
@@ -398,15 +453,15 @@ export default function PcTrading() {
       {confirm && (
         <div className="pc-modal-overlay" onClick={() => !placing && setConfirm(null)}>
           <div className="pc-confirm" onClick={(e) => e.stopPropagation()}>
-            <div className="pc-confirm-title">Confirm {confirm === 'buy' ? 'Buy Up' : 'Buy Down'}</div>
-            <div className="pc-summary-row"><span>Symbol</span><strong>{selectedCoin}</strong></div>
-            <div className="pc-summary-row"><span>Direction</span><strong className={confirm === 'buy' ? 'pos' : 'neg'}>{confirm === 'buy' ? 'Buy' : 'Sell'}</strong></div>
-            <div className="pc-summary-row"><span>Price</span><strong>{fmtPrice(realPrice)}</strong></div>
-            <div className="pc-summary-row"><span>Lots · Mult</span><strong>{lots.toFixed(2)} · {multiplier}×</strong></div>
-            <div className="pc-summary-row"><span>Est. Margin</span><strong>${marginStr}</strong></div>
+            <div className="pc-confirm-title">{confirm === 'buy' ? i18n('pc.confirmBuy') : i18n('pc.confirmSell')}</div>
+            <div className="pc-summary-row"><span>{i18n('pc.symbol')}</span><strong>{selectedCoin}</strong></div>
+            <div className="pc-summary-row"><span>{i18n('pc.direction')}</span><strong className={confirm === 'buy' ? 'pos' : 'neg'}>{confirm === 'buy' ? i18n('pc.buy') : i18n('pc.sell')}</strong></div>
+            <div className="pc-summary-row"><span>{i18n('pc.price')}</span><strong>{fmtPrice(realPrice)}</strong></div>
+            <div className="pc-summary-row"><span>{i18n('pc.lotsMult')}</span><strong>{lots.toFixed(2)} · {multiplier}×</strong></div>
+            <div className="pc-summary-row"><span>{i18n('pc.estimatedMargin')}</span><strong>${marginStr}</strong></div>
             <div className="pc-confirm-actions">
-              <button className="pc-btn-ghost" onClick={() => setConfirm(null)} disabled={placing}>Cancel</button>
-              <button className="pc-btn-primary" onClick={placeOrder} disabled={placing}>{placing ? 'Placing…' : 'Confirm'}</button>
+              <button className="pc-btn-ghost" onClick={() => setConfirm(null)} disabled={placing}>{i18n('pc.cancel')}</button>
+              <button className="pc-btn-primary" onClick={placeOrder} disabled={placing}>{placing ? i18n('pc.placing') : i18n('pc.confirm')}</button>
             </div>
           </div>
         </div>

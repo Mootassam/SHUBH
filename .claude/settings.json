@@ -28,7 +28,14 @@
       "Bash(cd /d/SHUBH/PC && grep -nE \"selectKycStatus\" src/modules/kyc/list/kycListSelectors.tsx | head; echo \"=== kyc doFetch ===\"; grep -nE \"doFetch\" src/modules/kyc/list/kycListActions.tsx | head -3; echo \"=== proof / bindAccount / KycStatusPage ===\"; ls src/view/pages/proof/proof.tsx src/view/pages/bindAccount/BindAccount.tsx src/view/pages/kycStatus/KycStatusPage.tsx 2>/dev/null)",
       "Bash(cd /d/SHUBH/PC && echo \"=== Lazyroutes ===\"; cat src/view/shared/Lazyroutes.tsx 2>/dev/null | head -30; echo \"=== history dep ===\"; grep -n '\"history\"' package.json; ls node_modules/history 2>/dev/null && echo \"history installed\" || echo \"history NOT in node_modules \\(expected, none installed\\)\"; echo \"=== react-router-dom version ===\"; grep -n \"react-router\" package.json)",
       "Bash(cd /d/SHUBH/PC && npx tsc --noEmit -p tsconfig.json 2>&1 | grep -E \"view/pages/Pc/\" | head; echo \"=== done \\(empty = clean\\) ===\")",
-      "Bash(cd /d/SHUBH/PC && grep -rnE \"getHistory\\\\\\(\\\\\\)\\\\.\\(push|replace|go\\)\" src/modules | head -15; echo \"=== getHistory export ===\"; grep -nE \"export.*getHistory|getHistory =\" src/modules/store.tsx | head)"
+      "Bash(cd /d/SHUBH/PC && grep -rnE \"getHistory\\\\\\(\\\\\\)\\\\.\\(push|replace|go\\)\" src/modules | head -15; echo \"=== getHistory export ===\"; grep -nE \"export.*getHistory|getHistory =\" src/modules/store.tsx | head)",
+      "Bash(cd /d/SHUBH/PC && grep -n \"online-service\" src/view/shared/routes.tsx; echo \"=== tsc ===\"; npx tsc --noEmit -p tsconfig.json 2>&1 | grep -E \"view/pages/Pc/\" | head; echo \"done\")",
+      "Bash(sed -n '420,470p' src/i18n/index.tsx)",
+      "Bash(cd /d/SHUBH/PC && echo \"=== en.tsx structure \\(top-level keys\\) ===\"; grep -nE \"^  [a-zA-Z]+: \\\\{\" src/i18n/en.tsx | head -40; echo \"=== total lines en ===\"; wc -l src/i18n/en.tsx; echo \"=== last lines en ===\"; tail -15 src/i18n/en.tsx)",
+      "Bash(cd /d/SHUBH/PC && npx tsc --noEmit -p tsconfig.json 2>&1 | grep -E \"view/pages/Pc/|i18n/\" | grep \"error TS\" | head -20; echo \"=== errors above \\(empty = clean\\) ===\")",
+      "Bash(cd /d/SHUBH/graborders && grep -n \"op-history-card\\\\|op-detail-sheet\\\\|op-tag-cancelled {\" src/view/pages/Order/OrdersPage.tsx | head)",
+      "Bash(cd /d/SHUBH/PC && grep -n \"detailOrder, setDetailOrder\\\\|function calcPnl\\\\|setDetailOrder\\(order\\)\\\\|op-history-card:hover\\\\|historyOrders.map\" src/view/pages/Order/OrdersPage.tsx)",
+      "Bash(cd /d/SHUBH/PC && grep -n \"lots, setLots\\\\|setLots\\\\|pc.lots\\\\|stepper full\" src/view/pages/Pc/PcTrading.tsx | head)"
     ]
   }
 }

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useHistory } from 'react-router-dom';
 
-const CRISP_WEBSITE_ID = 'ab42b4d9-6c25-43e7-9e5a-13da903a28f3';
+const CRISP_WEBSITE_ID = '3e065cd1-6048-4863-8088-85b45b7bac7e';
 
 declare global {
   interface Window {
