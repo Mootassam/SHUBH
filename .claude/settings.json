@@ -35,7 +35,9 @@
       "Bash(cd /d/SHUBH/PC && npx tsc --noEmit -p tsconfig.json 2>&1 | grep -E \"view/pages/Pc/|i18n/\" | grep \"error TS\" | head -20; echo \"=== errors above \\(empty = clean\\) ===\")",
       "Bash(cd /d/SHUBH/graborders && grep -n \"op-history-card\\\\|op-detail-sheet\\\\|op-tag-cancelled {\" src/view/pages/Order/OrdersPage.tsx | head)",
       "Bash(cd /d/SHUBH/PC && grep -n \"detailOrder, setDetailOrder\\\\|function calcPnl\\\\|setDetailOrder\\(order\\)\\\\|op-history-card:hover\\\\|historyOrders.map\" src/view/pages/Order/OrdersPage.tsx)",
-      "Bash(cd /d/SHUBH/PC && grep -n \"lots, setLots\\\\|setLots\\\\|pc.lots\\\\|stepper full\" src/view/pages/Pc/PcTrading.tsx | head)"
+      "Bash(cd /d/SHUBH/PC && grep -n \"lots, setLots\\\\|setLots\\\\|pc.lots\\\\|stepper full\" src/view/pages/Pc/PcTrading.tsx | head)",
+      "Bash(cd /d/SHUBH/PC && npx tsc --noEmit -p tsconfig.json 2>&1 | grep -E \"LiveChat\" | head; echo \"=== PC done ===\"; cd /d/SHUBH/graborders && npx tsc --noEmit -p tsconfig.json 2>&1 | grep -E \"LiveChat\" | head; echo \"=== graborders done ===\")",
+      "Bash(cd /d/SHUBH/PC && npx tsc --noEmit -p tsconfig.json 2>&1 | grep -E \"LiveChat\" | head; echo \"PC done\"; cd /d/SHUBH/graborders && npx tsc --noEmit -p tsconfig.json 2>&1 | grep -E \"LiveChat\" | head; echo \"graborders done\")"
     ]
   }
 }
