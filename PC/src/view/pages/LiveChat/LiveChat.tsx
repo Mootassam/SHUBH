@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 
 // Tawk.to live chat (inline-embedded into the page / modal)
-const TAWK_SRC = 'https://embed.tawk.to/6873ad755eab331912c52098/1j01tr50b';
+const TAWK_SRC = 'https://embed.tawk.to/6a299dc55bdfa41c2ccf5d9e/1jqp90jhq';
 const CONTAINER_ID = 'tawk-embed-container';
 
 declare global {
