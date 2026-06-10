@@ -7,6 +7,7 @@ import * as yup from "yup";
 
 // Local imports
 import actions from "src/modules/auth/authActions";
+import AuthService from "src/modules/auth/authService";
 import { i18n } from "../../../i18n";
 import yupFormSchemas from "src/modules/shared/yup/yupFormSchemas";
 import InputFormItem from "src/shared/form/InputFormItem";
@@ -17,15 +18,21 @@ function Signup() {
   const history = useHistory();
   const loading = useSelector(selectors.selectLoading);
   const errorMessage = useSelector(selectors.selectErrorMessage);
-  const [captchaText, setCaptchaText] = useState("");
 
-  // Generate initial captcha on component mount
+  // ── OTP email verification state ──
+  const [otp, setOtp] = useState("");
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpVerified, setOtpVerified] = useState(false);
+  const [sendingOtp, setSendingOtp] = useState(false);
+  const [verifying, setVerifying] = useState(false);
+  const [otpError, setOtpError] = useState<string | null>(null);
+  const [otpInfo, setOtpInfo] = useState<string | null>(null);
+
   useEffect(() => {
-    refreshCaptcha();
     dispatch(actions.doClearErrorMessage());
   }, [dispatch]);
 
-  // Validation schema
+  // Validation schema (captcha removed → replaced by email OTP)
   const schema = yup.object().shape({
     email: yupFormSchemas.string(i18n("pages.signup.labels.email"), {
       required: true,
@@ -45,12 +52,6 @@ function Signup() {
     phoneNumber: yupFormSchemas.string(i18n("pages.signup.labels.phoneNumber"), {
       required: true,
     }),
-    captcha: yup
-      .string()
-      .required(i18n("pages.signup.labels.captcha"))
-      .test("captcha-match", i18n("pages.signup.captchaMismatch"), function (value) {
-        return value === captchaText;
-      }),
   });
 
   const form = useForm({
@@ -61,34 +62,66 @@ function Signup() {
       password: "",
       newPasswordConfirmation: "",
       phoneNumber: "",
-      captcha: "",
     },
   });
 
-  // Generate new captcha
-  const refreshCaptcha = useCallback(() => {
-    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-    let newCaptcha = "";
-    for (let i = 0; i < 6; i++) {
-      newCaptcha += chars.charAt(Math.floor(Math.random() * chars.length));
+  // Send the OTP code to the entered email
+  const handleSendOtp = useCallback(async () => {
+    setOtpError(null);
+    setOtpInfo(null);
+    const email = String(form.getValues("email") || "").trim();
+    if (!email || !/^\S+@\S+\.\S+$/.test(email)) {
+      setOtpError("Please enter a valid email address first.");
+      return;
     }
-    setCaptchaText(newCaptcha);
-    form.setValue("captcha", "");
-    form.clearErrors("captcha");
+    setSendingOtp(true);
+    try {
+      await AuthService.sendOtp(email);
+      setOtpSent(true);
+      setOtpVerified(false);
+      setOtp("");
+      setOtpInfo("We sent a 6-digit code to your email.");
+    } catch (e: any) {
+      setOtpError(e?.response?.data?.errors?.[0]?.message || "Failed to send code. Try again.");
+    } finally {
+      setSendingOtp(false);
+    }
   }, [form]);
 
+  // Verify the entered OTP
+  const handleVerifyOtp = useCallback(async () => {
+    setOtpError(null);
+    setOtpInfo(null);
+    const email = String(form.getValues("email") || "").trim();
+    if (!otp || otp.length < 4) {
+      setOtpError("Enter the code from your email.");
+      return;
+    }
+    setVerifying(true);
+    try {
+      await AuthService.verifyOtp(email, otp);
+      setOtpVerified(true);
+      setOtpInfo("Email verified ✓");
+    } catch (e: any) {
+      setOtpVerified(false);
+      setOtpError(e?.response?.data?.errors?.[0]?.message || "Invalid code.");
+    } finally {
+      setVerifying(false);
+    }
+  }, [form, otp]);
+
   const onSubmit = useCallback(
-    (data) => {
+    async (data) => {
       const { email, password, phoneNumber } = data;
+      if (!otpVerified) {
+        setOtpError("Please verify your email before signing up.");
+        return;
+      }
       dispatch(
-        actions.doRegisterEmailAndPassword(
-          email,
-          password,
-          phoneNumber,
-        )
+        actions.doRegisterEmailAndPassword(email, password, phoneNumber)
       );
     },
-    [dispatch]
+    [dispatch, otpVerified]
   );
 
   const goBack = () => {
@@ -117,17 +150,29 @@ function Signup() {
           )}
 
           <form onSubmit={form.handleSubmit(onSubmit)}>
-            {/* Email */}
+            {/* Email + Send Code */}
             <div className="form-group">
               <label className="form-label">{i18n("pages.signup.labels.email")}</label>
-              <InputFormItem
-                type="email"
-                name="email"
-                placeholder={i18n("pages.signup.placeholders.email")}
-                className="input-field"
-                externalErrorMessage={null}
-                autoComplete="email"
-              />
+              <div className="otp-email-row">
+                <div style={{ flex: 1 }}>
+                  <InputFormItem
+                    type="email"
+                    name="email"
+                    placeholder={i18n("pages.signup.placeholders.email")}
+                    className="input-field"
+                    externalErrorMessage={null}
+                    autoComplete="email"
+                  />
+                </div>
+                <button
+                  type="button"
+                  className="otp-send-btn"
+                  onClick={handleSendOtp}
+                  disabled={sendingOtp || otpVerified}
+                >
+                  {otpVerified ? "Verified" : sendingOtp ? "Sending…" : otpSent ? "Resend" : "Send Code"}
+                </button>
+              </div>
             </div>
 
             {/* Phone Number */}
@@ -142,25 +187,35 @@ function Signup() {
               />
             </div>
 
-            {/* Graphical Captcha */}
-            <div className="form-group">
-              <label className="form-label">{i18n("pages.signup.labels.captcha")}</label>
-              <div className="captcha-wrapper">
-                <div className="captcha-display" onClick={refreshCaptcha}>
-                  <div className="captcha-text">{captchaText}</div>
-                  <div className="captcha-refresh">
-                    <i className="fas fa-sync-alt" />
-                    <span>{i18n("pages.signup.refresh")}</span>
-                  </div>
+            {/* Email OTP code */}
+            {otpSent && (
+              <div className="form-group">
+                <label className="form-label">Email Verification Code</label>
+                <div className="otp-code-row">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={6}
+                    value={otp}
+                    onChange={(e) => { setOtp(e.target.value.replace(/[^0-9]/g, "")); setOtpVerified(false); }}
+                    placeholder="6-digit code"
+                    className="input-field otp-code-input"
+                    disabled={otpVerified}
+                  />
+                  <button
+                    type="button"
+                    className="otp-verify-btn"
+                    onClick={handleVerifyOtp}
+                    disabled={verifying || otpVerified}
+                  >
+                    {otpVerified ? "✓" : verifying ? "…" : "Verify"}
+                  </button>
                 </div>
-                <InputFormItem
-                  type="text"
-                  name="captcha"
-                  placeholder={i18n("pages.signup.placeholders.captcha")}
-                  className="input-field captcha-input"
-                />
               </div>
-            </div>
+            )}
+
+            {otpError && <div className="otp-msg otp-msg-err">{otpError}</div>}
+            {otpInfo && <div className="otp-msg otp-msg-ok">{otpInfo}</div>}
 
             {/* Password */}
             <div className="form-group">
@@ -367,6 +422,27 @@ function Signup() {
         .captcha-input {
           flex: 0 0 120px;
         }
+
+        /* ── OTP email verification ── */
+        .otp-email-row { display: flex; gap: 8px; align-items: flex-start; }
+        .otp-send-btn {
+          flex: 0 0 auto; height: 48px; padding: 0 14px; border: none; border-radius: 8px;
+          background: #106cf5; color: #fff; font-size: 13px; font-weight: 600; cursor: pointer;
+          white-space: nowrap; transition: 0.2s;
+        }
+        .otp-send-btn:hover:not(:disabled) { background: #0a4fc4; }
+        .otp-send-btn:disabled { opacity: 0.6; cursor: default; }
+        .otp-code-row { display: flex; gap: 8px; }
+        .otp-code-input { flex: 1; letter-spacing: 4px; font-weight: 700; }
+        .otp-verify-btn {
+          flex: 0 0 auto; height: 48px; padding: 0 18px; border: 1px solid #106cf5; border-radius: 8px;
+          background: #fff; color: #106cf5; font-size: 14px; font-weight: 700; cursor: pointer; transition: 0.2s;
+        }
+        .otp-verify-btn:hover:not(:disabled) { background: #e6efff; }
+        .otp-verify-btn:disabled { opacity: 0.6; cursor: default; }
+        .otp-msg { font-size: 13px; margin: -6px 0 14px; padding: 8px 12px; border-radius: 8px; }
+        .otp-msg-err { color: #cc0000; background: #fff5f5; border: 1px solid #ffcccc; }
+        .otp-msg-ok  { color: #15803d; background: #f0fdf4; border: 1px solid #bbf7d0; }
 
         .signup-button {
           background-color: #106cf5;

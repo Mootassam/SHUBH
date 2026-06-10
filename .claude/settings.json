@@ -37,7 +37,14 @@
       "Bash(cd /d/SHUBH/PC && grep -n \"detailOrder, setDetailOrder\\\\|function calcPnl\\\\|setDetailOrder\\(order\\)\\\\|op-history-card:hover\\\\|historyOrders.map\" src/view/pages/Order/OrdersPage.tsx)",
       "Bash(cd /d/SHUBH/PC && grep -n \"lots, setLots\\\\|setLots\\\\|pc.lots\\\\|stepper full\" src/view/pages/Pc/PcTrading.tsx | head)",
       "Bash(cd /d/SHUBH/PC && npx tsc --noEmit -p tsconfig.json 2>&1 | grep -E \"LiveChat\" | head; echo \"=== PC done ===\"; cd /d/SHUBH/graborders && npx tsc --noEmit -p tsconfig.json 2>&1 | grep -E \"LiveChat\" | head; echo \"=== graborders done ===\")",
-      "Bash(cd /d/SHUBH/PC && npx tsc --noEmit -p tsconfig.json 2>&1 | grep -E \"LiveChat\" | head; echo \"PC done\"; cd /d/SHUBH/graborders && npx tsc --noEmit -p tsconfig.json 2>&1 | grep -E \"LiveChat\" | head; echo \"graborders done\")"
+      "Bash(cd /d/SHUBH/PC && npx tsc --noEmit -p tsconfig.json 2>&1 | grep -E \"LiveChat\" | head; echo \"PC done\"; cd /d/SHUBH/graborders && npx tsc --noEmit -p tsconfig.json 2>&1 | grep -E \"LiveChat\" | head; echo \"graborders done\")",
+      "Bash(grep -nE 'map $http_upgrade|connection_upgrade|listen 80' PC/nginx.conf)",
+      "Bash(grep -nE 'map $http_upgrade|connection_upgrade|listen 80' graborders/nginx.conf)",
+      "Bash(cd /d/SHUBH/server; echo \"=== auth api files ===\"; ls src/api/auth 2>/dev/null; echo \"=== auth index ===\"; cat src/api/auth/index.ts 2>/dev/null | head -60; echo \"=== axios / resend / node-fetch in deps ===\"; grep -nE '\"axios\"|\"resend\"|\"node-fetch\"' package.json; echo \"=== node version engines ===\"; grep -nE '\"node\"' package.json | head)",
+      "Bash(cd /d/SHUBH; echo \"=== graborders authService register ===\"; grep -nE \"registerWithEmailAndPassword|signupmobile|sign-up|signup\" graborders/src/modules/auth/authService.tsx | head; echo \"=== the register service body ===\"; sed -n '/registerWithEmailAndPassword/,/^  }/p' graborders/src/modules/auth/authService.tsx | head -30)",
+      "Bash(cd /d/SHUBH/graborders && grep -n \"captcha-wrapper\\\\|captcha-display\\\\|captcha-input\\\\|signup-button {\" src/view/pages/Auth/Signup.tsx | head)",
+      "Bash(cd /d/SHUBH/PC && grep -n \"shownError\\\\|pc-captcha-wrap\\\\|pc-captcha-display\\\\|pc-auth-error {\" src/view/pages/Pc/PcAuthModal.tsx)",
+      "Bash(cd /d/SHUBH/PC && grep -n \"captcha\\\\|refreshCaptcha\\\\|captchaText\" src/view/pages/Pc/PcAuthModal.tsx | head; echo \"=== graborders signup leftover ===\"; cd /d/SHUBH/graborders && grep -n \"captchaText\\\\|refreshCaptcha\\\\|name=\\\\\"captcha\\\\\"\" src/view/pages/Auth/Signup.tsx | head; echo \"done\")"
     ]
   }
 }

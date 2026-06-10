@@ -38,6 +38,10 @@ export default (app) => {
     message: "errors.429",
   });
 
+  // ── Email OTP verification (signup) ──────────────────────────────
+  app.post(`/auth/send-otp`, emailRateLimiter, require("./sendOtp").default);
+  app.post(`/auth/verify-otp`, require("./verifyOtp").default);
+
   app.post(
     `/auth/signupmobile`,
     signUpRateLimiter,

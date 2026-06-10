@@ -5,6 +5,17 @@ import AuthInvitationToken from "src/modules/auth/authInvitationToken";
 import UserService from "../user/userService";
 
 export default class AuthService {
+  // ── Email OTP verification (signup) ──────────────────────────────
+  static async sendOtp(email) {
+    const response = await authAxios.post('/auth/send-otp', { email });
+    return response.data;
+  }
+
+  static async verifyOtp(email, code) {
+    const response = await authAxios.post('/auth/verify-otp', { email, code });
+    return response.data;
+  }
+
   static async registerWithEmailAndPassword(
     email,
     password,
