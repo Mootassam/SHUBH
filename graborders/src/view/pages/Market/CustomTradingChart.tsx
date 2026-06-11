@@ -34,16 +34,10 @@ interface Props {
   priceInjection?: PriceInjection | null;
 }
 
-const INJ_CANDLES = 64; // candles the injection trend is drawn across (any timeframe)
-
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function getBucket(ms: number, bucketMs: number): number {
   return Math.floor(ms / bucketMs) * (bucketMs / 1000); // unix seconds
-}
-
-function easeInOutSine(t: number): number {
-  return -(Math.cos(Math.PI * t) - 1) / 2;
 }
 
 /** Deterministic pseudo-random in [-1, 1] from an integer seed (stable across devices). */
@@ -106,8 +100,11 @@ function generateHistory(currentPrice: number, symbol: string, tf: TF): Bar[] {
 // injection candles) entirely from the server-provided injection params + seed.
 // • Spacing = the selected timeframe's bucket, so it looks like real candles on
 //   1m / 30m / 1h / D (never a single vertical bar).
-// • The trend is drawn across INJ_CANDLES candles, revealed progressively by real
-//   elapsed time, with the latest candle anchored to "now".
+// • The move to the target is drawn as MANY small candles, each the same size as
+//   the surrounding history candles (natural volatility), so the market trends
+//   gradually — a few candles up, an occasional pull-back, then up again — and
+//   never produces one oversized "manipulated"-looking candle.
+// • Revealed progressively by real elapsed time, latest candle anchored to "now".
 // • Pure function of (inj, tf, nowMs) → every client/device renders the same thing,
 //   survives reload, and recomputes correctly on timeframe change.
 function buildInjectionSeries(inj: PriceInjection, tf: TF, nowMs: number): Bar[] {
@@ -118,27 +115,38 @@ function buildInjectionSeries(inj: PriceInjection, tf: TF, nowMs: number): Bar[]
   const target = inj.targetPrice;
   const dist  = target - entry;
   const prog  = Math.min(1, Math.max(0, (nowMs - inj.startedAt) / inj.durationMs));
-  const revealed = Math.max(1, Math.min(INJ_CANDLES, Math.round(prog * INJ_CANDLES)));
-  const stepSize = Math.abs(dist) / INJ_CANDLES || (entry * 0.0001);
+
+  // Per-candle volatility — identical to the history candles below — so the
+  // injection bodies match the previous market exactly (no oversized candle).
+  const natStep = Math.max(entry * baseVol(inj.symbol) * TF_VOL_SCALE[tf], entry * 1e-6);
+
+  // Number of injection candles scales with how far the price must travel: each
+  // candle drifts ≈ 40% of one natural body toward the target, so a big move is
+  // spread across more (still small) candles rather than crammed into one.
+  const DRIFT_FRAC = 0.4; // average per-candle drift toward target (× natStep)
+  const NOISE_FRAC = 0.7; // per-candle random wiggle (× natStep); > drift ⇒ pull-backs
+  const N = Math.max(
+    24,
+    Math.min(600, Math.round(Math.abs(dist) / (natStep * DRIFT_FRAC)) || 24)
+  );
+  const revealed = Math.max(1, Math.min(N, Math.round(prog * N)));
 
   const nowBucket = getBucket(nowMs, bucketMs);
 
-  // Injection close path c[0..INJ_CANDLES]. The smooth eased trend is the
-  // backbone; each close gets a sizeable seeded oscillation (≈2.2× the trend
-  // step) so that — even in an uptrend — many candles close BELOW the previous
-  // one (red), and vice-versa in a downtrend. This makes the chart look like a
-  // real noisy market that nonetheless trends to the target. Endpoints pinned.
-  const c: number[] = [];
-  for (let i = 0; i <= INJ_CANDLES; i++) {
-    const trend = entry + easeInOutSine(i / INJ_CANDLES) * dist;
-    // Envelope keeps the very first/last few candles calmer so it eases in/out,
-    // but stays well above zero in between for plenty of counter-trend candles.
-    const env  = 0.35 + 0.65 * Math.sin(Math.PI * i / INJ_CANDLES);
-    const osc  = seededNoise(inj.seed + i * 7) * stepSize * 2.2 * env;
-    c.push(trend + osc);
-  }
+  // Injection close path c[0..N] — a biased random walk. Each step takes the
+  // drift still required to reach the target divided by the candles remaining
+  // (guarantees convergence) PLUS a seeded wiggle that is LARGER than the drift,
+  // so roughly a quarter of the candles close against the trend → the natural
+  // "2-3 up, 1 down, 3-4 up" rhythm of a real market. Endpoints pinned.
+  const c: number[] = new Array(N + 1);
   c[0] = entry;
-  c[INJ_CANDLES] = target;
+  for (let i = 1; i <= N; i++) {
+    const remaining   = N - (i - 1);
+    const neededDrift = (target - c[i - 1]) / remaining;
+    const wiggle      = seededNoise(inj.seed + i * 7) * natStep * NOISE_FRAC;
+    c[i] = c[i - 1] + neededDrift + wiggle;
+  }
+  c[N] = target;
 
   // Injection candles: i = 1..revealed, latest (i = revealed) sits at nowBucket.
   // open = previous close (continuous), so candle colour = sign(close − prevClose).
@@ -147,8 +155,8 @@ function buildInjectionSeries(inj: PriceInjection, tf: TF, nowMs: number): Bar[]
     const time  = nowBucket - (revealed - i) * bucketSec;
     const open  = c[i - 1];
     const close = c[i];
-    const wickUp = Math.abs(seededNoise(inj.seed + i * 13 + 1)) * stepSize * 1.1;
-    const wickDn = Math.abs(seededNoise(inj.seed + i * 13 + 2)) * stepSize * 1.1;
+    const wickUp = Math.abs(seededNoise(inj.seed + i * 13 + 1)) * natStep * 0.6;
+    const wickDn = Math.abs(seededNoise(inj.seed + i * 13 + 2)) * natStep * 0.6;
     injBars.push({
       time,
       open,
