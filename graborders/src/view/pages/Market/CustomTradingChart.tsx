@@ -116,37 +116,55 @@ function buildInjectionSeries(inj: PriceInjection, tf: TF, nowMs: number): Bar[]
   const dist  = target - entry;
   const prog  = Math.min(1, Math.max(0, (nowMs - inj.startedAt) / inj.durationMs));
 
-  // Per-candle volatility — identical to the history candles below — so the
-  // injection bodies match the previous market exactly (no oversized candle).
+  // One "natural" candle body for this symbol/timeframe (same size as the
+  // history candles drawn to the left), used as the volatility floor.
   const natStep = Math.max(entry * baseVol(inj.symbol) * TF_VOL_SCALE[tf], entry * 1e-6);
 
-  // Number of injection candles scales with how far the price must travel: each
-  // candle drifts ≈ 40% of one natural body toward the target, so a big move is
-  // spread across more (still small) candles rather than crammed into one.
-  const DRIFT_FRAC = 0.4; // average per-candle drift toward target (× natStep)
-  const NOISE_FRAC = 0.7; // per-candle random wiggle (× natStep); > drift ⇒ pull-backs
+  // Candle bodies must stay SMALL — the same size as the normal history candles
+  // on the left (≈ natStep), never one tall candle. So we use as MANY candles as
+  // the move needs: the average climb per candle is kept to ~0.4 of a normal
+  // candle, which is smaller than the random swing below ⇒ small bodies + chop.
   const N = Math.max(
-    24,
-    Math.min(600, Math.round(Math.abs(dist) / (natStep * DRIFT_FRAC)) || 24)
+    50,
+    Math.min(220, Math.round(Math.abs(dist) / (natStep * 0.4)) || 50)
   );
   const revealed = Math.max(1, Math.min(N, Math.round(prog * N)));
 
   const nowBucket = getBucket(nowMs, bucketMs);
 
-  // Injection close path c[0..N] — a biased random walk. Each step takes the
-  // drift still required to reach the target divided by the candles remaining
-  // (guarantees convergence) PLUS a seeded wiggle that is LARGER than the drift,
-  // so roughly a quarter of the candles close against the trend → the natural
-  // "2-3 up, 1 down, 3-4 up" rhythm of a real market. Endpoints pinned.
+  // The random swing MUST stay bigger than the per-candle climb on EVERY
+  // timeframe, otherwise the climb dominates and the move collapses into a
+  // straight diagonal line (which is what happened on 1m/30m). On 1D the climb
+  // is small (~0.4·natStep) so the swing is just natStep; on 1m/30m the same
+  // price move is squeezed into the 220-candle cap, making the climb larger — so
+  // the swing scales up with it (2.5× the climb) to keep the candles choppy.
+  const avgDrift = Math.abs(dist) / N;
+  const swingAmp = Math.max(natStep, avgDrift * 2.5);
+
+  // Injection close path c[0..N] — a HOMING random walk with small, uniform steps.
+  //
+  // • Each candle = the small drift still needed to reach the target (gap /
+  //   candles-left, so it always converges) + a random swing (swingAmp). Because
+  //   the swing is bigger than the drift, ~⅓ of candles close red → real
+  //   pull-backs, and every body stays small/uniform (no tall single candles).
+  // • The noise is lightly AUTO-CORRELATED (each step keeps part of the previous
+  //   one), so reds and greens come in RUNS of several candles — "3 up, 2 down,
+  //   4 up, 6 down…" — instead of alternating every single candle.
+  // • Swing tapers to 0 over the last few candles so the path settles smoothly
+  //   onto the target instead of snapping there with one big candle.
+  const tail = Math.max(2, Math.round(N * 0.1));
   const c: number[] = new Array(N + 1);
   c[0] = entry;
+  let mom = 0; // momentum carried between candles → multi-candle runs
   for (let i = 1; i <= N; i++) {
     const remaining   = N - (i - 1);
-    const neededDrift = (target - c[i - 1]) / remaining;
-    const wiggle      = seededNoise(inj.seed + i * 7) * natStep * NOISE_FRAC;
-    c[i] = c[i - 1] + neededDrift + wiggle;
+    const homeDrift   = (target - c[i - 1]) / remaining;
+    const fresh       = seededNoise(inj.seed + i * 7);
+    mom = 0.55 * mom + 0.85 * fresh;                       // auto-correlated noise
+    const taper       = Math.min(1, (N - i) / tail);
+    c[i] = c[i - 1] + homeDrift + mom * swingAmp * taper;
   }
-  c[N] = target;
+  c[N] = target; // pin exactly onto the target close
 
   // Injection candles: i = 1..revealed, latest (i = revealed) sits at nowBucket.
   // open = previous close (continuous), so candle colour = sign(close − prevClose).
@@ -155,8 +173,9 @@ function buildInjectionSeries(inj: PriceInjection, tf: TF, nowMs: number): Bar[]
     const time  = nowBucket - (revealed - i) * bucketSec;
     const open  = c[i - 1];
     const close = c[i];
-    const wickUp = Math.abs(seededNoise(inj.seed + i * 13 + 1)) * natStep * 0.6;
-    const wickDn = Math.abs(seededNoise(inj.seed + i * 13 + 2)) * natStep * 0.6;
+    const wickRef = Math.max(natStep, Math.abs(close - open));
+    const wickUp = Math.abs(seededNoise(inj.seed + i * 13 + 1)) * wickRef * 0.5;
+    const wickDn = Math.abs(seededNoise(inj.seed + i * 13 + 2)) * wickRef * 0.5;
     injBars.push({
       time,
       open,
