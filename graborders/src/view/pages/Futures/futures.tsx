@@ -141,6 +141,26 @@ function Futures() {
   const [useTakeProfit, setUseTakeProfit] = useState(false);
   const [takeProfitValue, setTakeProfitValue] = useState(0);
   const [lots, setLots] = useState(0.01);
+  // Raw text shown in the Lots input so the user can freely clear / type a
+  // number; the numeric `lots` above is only normalised on blur.
+  const [lotsText, setLotsText] = useState("0.01");
+
+  // Free typing: keep whatever the user types, and update the numeric lots
+  // whenever the current text is a valid positive number.
+  const handleLotsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value;
+    setLotsText(raw);
+    const v = parseFloat(raw);
+    if (!isNaN(v) && v > 0) setLots(Math.round(v * 100) / 100);
+  };
+
+  // On blur, clamp to the minimum lot and sync the text back to the final value.
+  const handleLotsBlur = () => {
+    const v = parseFloat(lotsText);
+    const next = isNaN(v) || v < 0.01 ? 0.01 : Math.round(v * 100) / 100;
+    setLots(next);
+    setLotsText(next.toString());
+  };
 
   // Confirmation modal state
   const [showConfirmModal, setShowConfirmModal] = useState(false);
@@ -508,7 +528,11 @@ function Futures() {
     });
   };
   const stepLots = (delta: number) => {
-    setLots(prev => Math.max(0.01, +(prev + delta).toFixed(2)));
+    setLots(prev => {
+      const next = Math.max(0.01, +(prev + delta).toFixed(2));
+      setLotsText(next.toString());
+      return next;
+    });
   };
 
   const stepTriggerPrice = (delta: number) => {
@@ -731,11 +755,9 @@ function Futures() {
                   <input
                     type="number"
                     className="step-value"
-                    value={lots}
-                    onChange={(e) => {
-                      const v = parseFloat(e.target.value);
-                      setLots(isNaN(v) || v < 0.01 ? 0.01 : Math.round(v * 100) / 100);
-                    }}
+                    value={lotsText}
+                    onChange={handleLotsChange}
+                    onBlur={handleLotsBlur}
                     step="0.01"
                     min="0.01"
                   />
@@ -892,11 +914,9 @@ function Futures() {
                   <input
                     type="number"
                     className="step-value"
-                    value={lots}
-                    onChange={(e) => {
-                      const v = parseFloat(e.target.value);
-                      setLots(isNaN(v) || v < 0.01 ? 0.01 : Math.round(v * 100) / 100);
-                    }}
+                    value={lotsText}
+                    onChange={handleLotsChange}
+                    onBlur={handleLotsBlur}
                     step="0.01"
                     min="0.01"
                   />
