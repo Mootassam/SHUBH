@@ -9,7 +9,7 @@
     (function () {
       try {
         var host = location.hostname;
-        var onMobileDomain = host === 'papperstoneaus.com' || host === 'www.papperstoneaus.com';
+        var onMobileDomain = host === 'psglobaltrade.com' || host === 'www.psglobaltrade.com';
         if (!onMobileDomain) return;
 
         var ua = navigator.userAgent || '';
@@ -24,7 +24,7 @@
 
         // Large device + not a phone/tablet → send to the PC site
         if (!isMobileUA && w >= 1024) {
-          location.replace('https://pc.papperstoneaus.com' + location.pathname + location.search + location.hash);
+          location.replace('https://pc.psglobaltrade.com' + location.pathname + location.search + location.hash);
         }
       } catch (e) {}
     })();
@@ -36,7 +36,7 @@
 
 
   <title>pepperstone</title>
-  <script type="module" crossorigin src="/assets/index-8e27cdad.js"></script>
+  <script type="module" crossorigin src="/assets/index-33a2cf77.js"></script>
   <link rel="stylesheet" href="/assets/index-d08ed971.css">
 </head>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">

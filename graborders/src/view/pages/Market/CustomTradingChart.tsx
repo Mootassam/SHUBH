@@ -1,5 +1,6 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createChart, CandlestickSeries } from 'lightweight-charts';
+import { isMarketOpen } from 'src/view/shared/marketHours';
 
 // ── Public types ──────────────────────────────────────────────────────────────
 
@@ -381,6 +382,11 @@ export default function CustomTradingChart({
       }
 
       // ── Live mode: accumulate WS price into candles ───────────────────────
+      // Forex / metals / oil / indices are closed on the weekend — freeze the
+      // chart (no new candles) so it doesn't fake movement while the real
+      // market is shut. Crypto keeps ticking 24/7. Injections are unaffected.
+      if (!isMarketOpen(symbol)) return;
+
       const price = livePriceRef.current;
       if (!price || price <= 0) return;
 

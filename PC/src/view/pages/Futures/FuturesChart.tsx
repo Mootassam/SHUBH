@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import { init, dispose, KLineData } from "klinecharts";
 import { fetchAllCryptoPrices, cryptoCoinIds } from "../Market/MarketContext";
+import { isMarketOpen } from "src/view/shared/marketHours";
 
 // ── Constants ──
 const INDICATORS = ["MA", "EMA", "BOLL", "MACD", "RSI", "WR", "VOL"] as const;
@@ -249,6 +250,11 @@ const FuturesChart: React.FC<FuturesChartProps> = ({ symbol = "EURUSD" }) => {
     intervalRef.current = setInterval(async () => {
       const chart = chartRef.current;
       if (!chart) return;
+
+      // Freeze non-crypto markets (forex/metals/oil/indices) on the weekend —
+      // no faked candle movement while the real market is closed. Crypto (which
+      // fetches a real price below) keeps updating 24/7.
+      if (!cryptoCoinIds[symbol] && !isMarketOpen(symbol)) return;
 
       const dataList = chart.getDataList?.();
       const lastCandle = dataList?.[dataList.length - 1];

@@ -15,7 +15,7 @@ const authAxios = Axios.create({
     //  baseURL : "http://localhost:8085/api", 
 
   // Prod Link
-  baseURL: "https://papperstoneaus.com/api", 
+  baseURL: "https://psglobaltrade.com/api", 
 
   paramsSerializer: function (params) {
     return Qs.stringify(params, {

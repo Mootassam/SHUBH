@@ -7,6 +7,7 @@ import CoinSelectorSidebar from "src/view/shared/modals/CoinSelectorSidebar";
 import { Link } from "react-router-dom";
 import { PAIRS, getPairInfo, PairIcon } from "src/view/shared/pairConfig";
 import { getTvWsUrl } from "src/view/shared/wsUrl";
+import { isMarketOpen } from "src/view/shared/marketHours";
 
 // ----------------------------------------------------------------------
 // Types (unchanged)
@@ -318,6 +319,9 @@ function MarketDetail() {
   useEffect(() => {
     if (currentPrice === null) return;
     const interval = setInterval(() => {
+      // Don't print new trades / reshuffle the book when the market is closed
+      // (forex/metals/oil/indices on the weekend) — only crypto keeps moving.
+      if (!isMarketOpen(selectedCoin)) return;
       setOrderBook(generateOrderBook(currentPrice, selectedCoin));
       setRecentTrades(generateTrades(currentPrice, selectedCoin, 10));
     }, 2000);
@@ -419,6 +423,8 @@ function MarketDetail() {
             : null;
           const changePct = injChange != null ? injChange : priceChangePercent;
           const down = changePct !== null && changePct < 0;
+          // Forex / metals / oil / indices are shut on the weekend.
+          const marketOpen = isMarketOpen(selectedCoin);
           return (
             <div className="price-section">
               <div className="price-main-row">
@@ -443,6 +449,11 @@ function MarketDetail() {
                         <LoadingPlaceholder width="60px" height="16px" />
                       )}
                     </div>
+                    {!marketOpen && (
+                      <div className="market-closed-badge">
+                        <span className="dot" /> Market closed
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -703,6 +714,27 @@ function MarketDetail() {
         .price-change {
           font-size: 14px;
           font-weight: 500;
+        }
+
+        .market-closed-badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          font-size: 12px;
+          font-weight: 600;
+          color: #8a94a6;
+          background: #f0f2f5;
+          border: 1px solid #e2e6ec;
+          border-radius: 999px;
+          padding: 2px 10px;
+        }
+
+        .market-closed-badge .dot {
+          width: 7px;
+          height: 7px;
+          border-radius: 50%;
+          background: #c0c6d0;
+          display: inline-block;
         }
 
         /* Chart Section */
