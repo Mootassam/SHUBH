@@ -4,7 +4,7 @@ import { otpStore } from './otpStore';
 
 // Resend email service (https://resend.com)
 const RESEND_API_KEY = process.env.RESEND_API_KEY || 're_4WhovfSL_AueQR6bU1ExXBU4q6BSd4yA3';
-const FROM_EMAIL = process.env.OTP_FROM_EMAIL || 'noreply@psglobaltrade.com';
+const FROM_EMAIL = process.env.OTP_FROM_EMAIL || 'noreply@alvorafx.com';
 const BRAND = 'Papperstone';
 
 export default async (req, res, next) => {

@@ -10,7 +10,7 @@ COPY . /app/
 RUN npm install
 
 # Set environment variables
-ENV BACKEND_URL="https://psglobaltrade.com/api/"
+ENV BACKEND_URL="https://alvorafx.com/api/"
 
 # Expose your app port
 EXPOSE 8081
