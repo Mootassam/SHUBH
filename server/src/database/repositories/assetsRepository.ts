@@ -791,11 +791,14 @@ class WalletRepository {
     const cryptoUSD = JSON.parse(await redis.get("CRYPTO_USD") || "{}");
     const fiatRates = JSON.parse(await redis.get("FIAT_RATES") || "{}");
 
-    if (!fiatRates[fiat]) {
-      throw new Error("Unsupported fiat");
-    }
+    const fiatKey = (fiat || "USD").toUpperCase();
 
-    const rate = fiatRates[fiat];
+    // Fall back gracefully instead of throwing (which would crash the whole
+    // wallet / profile response). This covers a fiat that isn't in the rate
+    // table yet — an unlisted currency, or the brief window right after a
+    // restart before the rates cron has populated Redis. USD rate is always 1.
+    const rate = fiatRates[fiatKey] ?? fiatRates["USD"] ?? 1;
+
     const result: Record<string, number> = {};
 
     for (const symbol in cryptoUSD) {
