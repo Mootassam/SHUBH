@@ -1,6 +1,6 @@
 require("dotenv").config();
 import server from "./api";
-const PORT = process.env.PORT || 8085;
+const PORT = process.env.PORT || 8082;
 
 (async () => {
 

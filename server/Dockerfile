@@ -10,9 +10,9 @@ COPY . /app/
 RUN npm install
 
 # Set environment variables
-ENV BACKEND_URL="https://alvorafx.com/api/"
+ENV BACKEND_URL="http://159.198.45.60:8082/api"
 
 # Expose your app port
-EXPOSE 8081
+EXPOSE 8082
 
 CMD ["npm", "start"]
