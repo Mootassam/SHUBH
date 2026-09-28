@@ -22,7 +22,7 @@ services:
   db:
     image: mongo:4.0-xenial
     ports:
-      - 2747:27017
+      - ${DB_PORT:-2747}:27017
     restart: unless-stopped
     volumes:
       - phone:/data/db
@@ -59,7 +59,7 @@ services:
   web:
     build: ./admin
     ports:
-      - 3062:80
+      - ${WEB_PORT:-3062}:80
     restart: unless-stopped
     volumes:
       - "./admin:/app"
