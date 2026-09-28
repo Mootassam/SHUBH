@@ -10,9 +10,9 @@ COPY . /app/
 RUN npm install
 
 # Set environment variables
-ENV BACKEND_URL="http://159.198.45.60:8082/api"
+ENV BACKEND_URL="https://finaltoglobal.com/api"
 
 # Expose your app port
-EXPOSE 8082
+EXPOSE 8081
 
 CMD ["npm", "start"]

@@ -1,0 +1,1 @@
+const s=/BTC|ETH|LTC|XRP|ADA|DOGE|SOL|BNB|DOT|AVAX|LINK|MATIC|TRX|BCH|XLM|ATOM|UNI|USDT|USDC/;function u(t){return s.test((t||"").toUpperCase())}function T(t,r=new Date){if(u(t))return!0;const e=r.getUTCDay(),n=r.getUTCHours();return!(e===6||e===0&&n<22||e===5&&n>=22)}export{T as i};

@@ -2,6 +2,7 @@ import ApiResponseHandler from '../apiResponseHandler';
 import MongooseRepository from '../../database/repositories/mongooseRepository';
 import TradeOrder from '../../database/models/tradeOrder';
 import Wallet from '../../database/models/wallet';
+import { isMarketOpen } from '../../utils/marketHours';
 
 const CONTRACT_SIZE = 100;
 
@@ -33,6 +34,9 @@ export default async (req, res, next) => {
     }
     if (orderType === 'pending' && (!targetPrice || !referencePrice)) {
       return res.status(400).json({ errors: [{ message: 'targetPrice and referencePrice required for pending orders' }] });
+    }
+    if (!isMarketOpen(symbol)) {
+      return res.status(400).json({ errors: [{ message: `The market for ${symbol} is closed. Forex, metals, oil and indices trade Monday–Friday only.` }] });
     }
 
     // Use entryPrice for market, referencePrice for pending (live price at creation)

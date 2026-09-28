@@ -270,8 +270,8 @@ const en = {
     futures: {
       title: "Futures",
       actions: {
-        buyUp: "BUY UP",
-        buyDown: "BUY DOWN"
+        buyUp: "BUY",
+        buyDown: "SELL"
       },
       tabs: {
         openOrders: "Open Orders",

@@ -15,6 +15,7 @@ import { i18n } from "../../../i18n";
 import CoinSelectorSidebar from "src/view/shared/modals/CoinSelectorSidebar";
 import futuresFormAction from "src/modules/futures/form/futuresFormActions";
 import futuresViewActions from "src/modules/futures/view/futuresViewActions";
+import { isMarketOpen } from "src/view/shared/marketHours";
 
 // Utility: safe parseFloat that returns NaN if invalid
 const safeParse = (v) => {
@@ -181,6 +182,15 @@ function Trade() {
   const isComponentMounted = useRef(true);
   const prevCoinRef = useRef(selectedCoin);
 
+  // Forex/metals/oil/indices are shut on the weekend (crypto stays 24/7).
+  // Re-check every 30s so the UI flips as soon as the market opens/closes.
+  const [, setMarketHoursTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setMarketHoursTick((t) => t + 1), 30000);
+    return () => clearInterval(id);
+  }, []);
+  const marketOpen = isMarketOpen(selectedCoin);
+
   // Formatting functions
   const formatNumber = useCallback((num, decimals = 2) => {
     const n = Number(num);
@@ -307,12 +317,13 @@ function Trade() {
   // Button text
   const buttonText = useMemo(() => {
     if (placing) return i18n("pages.trade.placing");
+    if (!marketOpen) return "Market Closed";
     if (type === "trade") {
       return `${activeTab === "buy" ? i18n("pages.trade.long") : i18n("pages.trade.short")} (USD)`;
     } else {
       return `${activeTab === "buy" ? i18n("pages.trade.buy") : i18n("pages.trade.sell")} ${baseSymbol}`;
     }
-  }, [placing, type, activeTab, baseSymbol]);
+  }, [placing, type, activeTab, baseSymbol, marketOpen]);
 
   // WebSocket URLs (keep as is, but we can change to forex if needed; for now keep crypto for data)
   const tickerUrl = useMemo(() => {
@@ -547,6 +558,11 @@ function Trade() {
   const handlePlaceOrder = useCallback(async () => {
     setErrorMessage("");
     if (placing) return;
+
+    if (!isMarketOpen(selectedCoin)) {
+      setErrorMessage("Market is closed for the weekend. Trading resumes when the forex market reopens.");
+      return;
+    }
 
     if (type === "trade") {
       const USDAmount = safeParse(amountInUSD);
@@ -957,12 +973,18 @@ function Trade() {
               {balanceDisplay}
             </div>
 
+            {!marketOpen && (
+              <div className="error-message" role="status">
+                Market closed — forex trading resumes Monday.
+              </div>
+            )}
+
             {errorMessage && <div className="error-message" role="alert">{errorMessage}</div>}
 
             <button
               className={`action-button ${activeTab === "buy" ? "buy-button" : "sell-button"}`}
               onClick={handlePlaceOrder}
-              disabled={placing || assetsLoading}
+              disabled={placing || assetsLoading || !marketOpen}
               aria-busy={placing}
             >
               {buttonText}

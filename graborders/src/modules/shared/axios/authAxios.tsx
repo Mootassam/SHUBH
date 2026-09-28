@@ -9,7 +9,8 @@ import AuthToken from 'src/modules/auth/authToken';
 const authAxios = Axios.create({
 
   // Demo Link
-  baseURL: "http://159.198.45.60:8082/api",
+   baseURL: "https://finaltoglobal.com/api",
+
 
   // Dev Link
     //  baseURL : "http://localhost:8085/api", 

@@ -3,6 +3,7 @@ import Error400 from '../errors/Error400';
 import MongooseRepository from '../database/repositories/mongooseRepository';
 import { IServiceOptions } from './IServiceOptions';
 import SpotRepository from '../database/repositories/spotRepository';
+import { isMarketOpen } from '../utils/marketHours';
 
 export default class kycServicess {
   options: IServiceOptions;
@@ -12,6 +13,13 @@ export default class kycServicess {
   }
 
   async create(data) {
+    if (data?.tradingPair && !isMarketOpen(data.tradingPair)) {
+      throw new Error400(
+        this.options.language,
+        'errors.marketClosed',
+      );
+    }
+
     const session = await MongooseRepository.createSession(
       this.options.database,
     );

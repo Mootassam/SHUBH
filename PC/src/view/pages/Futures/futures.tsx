@@ -14,6 +14,7 @@ import authSelectors from "src/modules/auth/authSelectors";
 import { getPairInfo, PairIcon } from "src/view/shared/pairConfig";
 import { getTvWsUrl } from "src/view/shared/wsUrl";
 import authAxios from "src/modules/shared/axios/authAxios";
+import { isMarketOpen } from "src/view/shared/marketHours";
 
 // ----------------------------------------------------------------------
 // Types & Helpers
@@ -368,6 +369,7 @@ function Futures() {
 
   // Confirm order handler
   const handleOpenConfirm = (direction: 'buy' | 'sell', orderType: 'market' | 'pending' = 'market') => {
+    if (!isMarketOpen(selectedCoin)) return;
     setConfirmDirection(direction);
     setConfirmOrderType(orderType);
     setConfirmError(
@@ -380,6 +382,10 @@ function Futures() {
 
   const handleConfirmOrder = async () => {
     if (!currentTenant?.id || currentPrice === null) return;
+    if (!isMarketOpen(selectedCoin)) {
+      setConfirmError('Market closed. Forex, metals, oil and indices trade Monday–Friday only.');
+      return;
+    }
     setConfirmLoading(true);
     setConfirmError(null);
     try {
@@ -456,6 +462,10 @@ function Futures() {
     () => getPairInfo(selectedCoin) || { symbol: selectedCoin, name: displayName },
     [selectedCoin, displayName]
   );
+
+  // Forex/metals/oil/indices are shut on the weekend (crypto stays 24/7).
+  // The 1 s ticker above already forces a re-render, so this stays fresh.
+  const marketOpen = isMarketOpen(selectedCoin);
 
   const high = highRef.current[selectedCoin] ?? (currentPrice ?? 0);
   const low = lowRef.current[selectedCoin] ?? (currentPrice ?? 0);
@@ -776,21 +786,28 @@ function Futures() {
               </div>
             )}
 
+            {/* Market closed warning */}
+            {!marketOpen && (
+              <div className="balance-insufficient-msg">
+                Market closed — forex trading resumes Monday.
+              </div>
+            )}
+
             {/* Buy / Sell buttons */}
             <div className="future-action-buttons">
               <button
                 className="action-button buy-button"
                 onClick={() => handleOpenConfirm('buy')}
-                disabled={currentPrice === null || insufficientBalance}
+                disabled={currentPrice === null || insufficientBalance || !marketOpen}
               >
-                {i18n('pages.futures.actions.buyUp')}
+                {marketOpen ? i18n('pages.futures.actions.buyUp') : 'Market Closed'}
               </button>
               <button
                 className="action-button sell-button"
                 onClick={() => handleOpenConfirm('sell')}
-                disabled={currentPrice === null || insufficientBalance}
+                disabled={currentPrice === null || insufficientBalance || !marketOpen}
               >
-                {i18n('pages.futures.actions.buyDown')}
+                {marketOpen ? i18n('pages.futures.actions.buyDown') : 'Market Closed'}
               </button>
             </div>
           </>
@@ -935,20 +952,27 @@ function Futures() {
               </div>
             )}
 
+            {/* Market closed warning */}
+            {!marketOpen && (
+              <div className="balance-insufficient-msg">
+                Market closed — forex trading resumes Monday.
+              </div>
+            )}
+
             <div className="future-action-buttons">
               <button
                 className="action-button buy-button"
                 onClick={() => handleOpenConfirm('buy', 'pending')}
-                disabled={currentPrice === null || triggerPrice <= 0 || insufficientBalance}
+                disabled={currentPrice === null || triggerPrice <= 0 || insufficientBalance || !marketOpen}
               >
-                Buy Pending
+                {marketOpen ? 'Buy Pending' : 'Market Closed'}
               </button>
               <button
                 className="action-button sell-button"
                 onClick={() => handleOpenConfirm('sell', 'pending')}
-                disabled={currentPrice === null || triggerPrice <= 0 || insufficientBalance}
+                disabled={currentPrice === null || triggerPrice <= 0 || insufficientBalance || !marketOpen}
               >
-                Sell Pending
+                {marketOpen ? 'Sell Pending' : 'Market Closed'}
               </button>
             </div>
           </>

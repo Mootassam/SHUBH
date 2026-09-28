@@ -9,6 +9,7 @@ import { getTvWsUrl } from 'src/view/shared/wsUrl';
 import CustomTradingChart, { PriceInjection } from 'src/view/pages/Market/CustomTradingChart';
 import useSymbolInjections from 'src/view/shared/useSymbolInjections';
 import { getLanguageCode, getLanguages, i18n } from '../../../i18n';
+import { isMarketOpen } from 'src/view/shared/marketHours';
 import layoutActions from 'src/modules/layout/layoutActions';
 import PcAuthModal from './PcAuthModal';
 import PcProfileModal from './PcProfileModal';
@@ -174,6 +175,15 @@ export default function PcTrading() {
     ? (livePriceRef.current ?? serverInj.targetPrice) // chart shows animation; header roughly tracks
     : realPrice;
 
+  // Forex/metals/oil/indices are shut on the weekend (crypto stays 24/7).
+  // Re-check every 30s so the UI flips as soon as the market opens/closes.
+  const [, setMarketHoursTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setMarketHoursTick((t) => t + 1), 30000);
+    return () => clearInterval(id);
+  }, []);
+  const marketOpen = isMarketOpen(selectedCoin);
+
   const estimatedMargin = useMemo(() => {
     const price = realPrice ?? 0;
     const leverage = multiplier / 100;
@@ -207,11 +217,17 @@ export default function PcTrading() {
   // ── Order placement (reuses the trade-orders endpoint) ───────────────────
   const openConfirm = (dir: 'buy' | 'sell') => {
     if (!currentUser) { setAuthModal('login'); return; }
+    if (!isMarketOpen(selectedCoin)) return;
     setConfirm(dir);
   };
 
   const placeOrder = async () => {
     if (!confirm || !currentTenant?.id || realPrice == null) return;
+    if (!isMarketOpen(selectedCoin)) {
+      alert('Market closed. Forex, metals, oil and indices trade Monday–Friday only.');
+      setConfirm(null);
+      return;
+    }
     setPlacing(true);
     try {
       await authAxios.post(`/tenant/${currentTenant.id}/trade-orders`, {
@@ -440,10 +456,17 @@ export default function PcTrading() {
 
             {insufficient && <div className="pc-insufficient">⚠ {i18n('pc.insufficient')} (${marginStr})</div>}
 
+            {/* Market closed warning */}
+            {!marketOpen && (
+              <div className="pc-tp-info-row" style={{ color: '#ef4444', justifyContent: 'center' }}>
+                Market closed — forex trading resumes Monday.
+              </div>
+            )}
+
             {/* Buy / Sell */}
             <div className="pc-tp-actions">
-              <button className="pc-buy2" disabled={realPrice == null || insufficient} onClick={() => openConfirm('buy')}>{i18n('pc.buy')}</button>
-              <button className="pc-sell2" disabled={realPrice == null || insufficient} onClick={() => openConfirm('sell')}>{i18n('pc.sell')}</button>
+              <button className="pc-buy2" disabled={realPrice == null || insufficient || !marketOpen} onClick={() => openConfirm('buy')}>{marketOpen ? i18n('pc.buy') : 'Market Closed'}</button>
+              <button className="pc-sell2" disabled={realPrice == null || insufficient || !marketOpen} onClick={() => openConfirm('sell')}>{marketOpen ? i18n('pc.sell') : 'Market Closed'}</button>
             </div>
           </div>
         </aside>

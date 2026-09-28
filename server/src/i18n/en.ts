@@ -118,8 +118,9 @@ const en = {
   },
 
   errors: {
-    Invalidnonce :"Invalid nonce", 
+    Invalidnonce :"Invalid nonce",
     Invalidsignature:"Invalid signature",
+    marketClosed: "The market for this symbol is closed. Forex, metals, oil and indices trade Monday–Friday only.",
 
       frozenDuringExecution: "Cannot execute {{operation}}. Your {{currency}} perpetual wallet is currently frozen. Please contact customer support.",
       insufficientorfrozen:"Insufficient funds in wallet after validation or wallet is frozen",
