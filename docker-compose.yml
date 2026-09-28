@@ -3,6 +3,8 @@
 services:
   backend:
     build: ./server
+    env_file:
+      - .env
     ports:
       - 8081:8081
     restart: unless-stopped
@@ -10,7 +12,7 @@ services:
       - upload:/upload
     environment:
       DATABASE_CONNECTION: mongodb://db:27017/grap
-      REDIS_URL: redis://:91l3C92VHX9OytcgcV@redis:6379
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
       FUTURES_QUEUE_NAME: futures_queue
     depends_on:
       - db
@@ -36,7 +38,7 @@ services:
       redis-server
       --appendonly yes
       --dir /data
-      --requirepass 91l3C92VHX9OytcgcV
+      --requirepass ${REDIS_PASSWORD}
       --protected-mode yes
       --bind 0.0.0.0
       --rename-command FLUSHDB ''
