@@ -59,7 +59,7 @@ services:
   web:
     build: ./admin
     ports:
-      - ${WEB_PORT:-3062}:80
+      - ${WEB_PORT:-3061}:80
     restart: unless-stopped
     volumes:
       - "./admin:/app"
