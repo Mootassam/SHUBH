@@ -9,7 +9,7 @@ import AuthToken from 'src/modules/auth/authToken';
 const authAxios = Axios.create({
 
   // Demo Link
-   baseURL: "https://finaltoglobal.com/api",
+   baseURL: "https://alvorafx.com/api",
 
 
   // Dev Link
