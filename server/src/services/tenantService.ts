@@ -120,10 +120,26 @@ export default class TenantService {
         return;
       }
 
+      // The tenant can exist without any admin: with DATABASE_TRANSACTIONS=false a sign-up that
+      // failed half-way (e.g. missing AUTH_JWT_SECRET) keeps the tenant it created. Then the next
+      // person to sign up is still the first real user, so they become admin, not "waiting".
+      const activeAdmins = await UserRepository.count(
+        {
+          tenants: {
+            $elemMatch: {
+              tenant: tenant.id,
+              roles: Roles.values.admin,
+              status: 'active',
+            },
+          },
+        },
+        { ...this.options, session },
+      );
+
       return await TenantUserRepository.create(
         tenant,
         this.options.currentUser,
-        roles,
+        activeAdmins ? roles : [Roles.values.admin],
         { ...this.options, session },
       );
     }
